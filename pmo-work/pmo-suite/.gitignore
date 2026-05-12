@@ -1,0 +1,24 @@
+# ── Credenciais — NUNCA commitar ──────────────────────────
+.env
+.env.local
+.env.production
+.env.development
+*.env
+
+# ── Node ──────────────────────────────────────────────────
+node_modules/
+npm-debug.log*
+
+# ── Banco de dados local ──────────────────────────────────
+*.db
+*.db.json
+*.sqlite
+
+# ── Sistema operacional ───────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── Logs ─────────────────────────────────────────────────
+*.log
+logs/

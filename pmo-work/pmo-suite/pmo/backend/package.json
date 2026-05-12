@@ -1,0 +1,28 @@
+{
+  "name": "pmo-suite",
+  "version": "5.0.0",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "seed": "node db/seed.js",
+    "pm2:start": "pm2 start server.js --name pmo-suite --watch false",
+    "pm2:stop": "pm2 stop pmo-suite",
+    "pm2:restart": "pm2 restart pmo-suite",
+    "pm2:logs": "pm2 logs pmo-suite"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "compression": "^1.7.4",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.1",
+    "express": "^4.18.2",
+    "express-rate-limit": "^7.2.0",
+    "express-validator": "^7.0.1",
+    "jsonwebtoken": "^9.0.2",
+    "morgan": "^1.10.0",
+    "pg": "^8.20.0",
+    "resend": "^6.12.3",
+    "uuid": "^9.0.0"
+  }
+}

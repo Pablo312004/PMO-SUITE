@@ -1,0 +1,791 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+  <meta name="supa-url" content="{{SUPABASE_URL}}">
+  <meta name="supa-key" content="{{SUPABASE_ANON_KEY}}"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PMO Suite — Gestão de Portfólio Agro</title>
+<link rel="stylesheet" href="css/style.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+<div id="sidebar-overlay" onclick="closeSidebar()"></div>
+
+<!-- ════════════════ AUTH ════════════════ -->
+<div id="auth-screen">
+  <div class="auth-card">
+    <div class="auth-brand">
+      <div class="auth-brand-icon">🌿</div>
+      <div><div class="auth-logo">PMO Suite</div><div class="auth-sub">Portfolio Management Office</div></div>
+    </div>
+    <div class="auth-heading">Bem-vindo de volta</div>
+    <div class="auth-desc">Acesse com sua conta corporativa</div>
+    <div id="oauth-buttons">
+      <button class="btn-oauth" onclick="loginWithGoogle()" type="button">
+        <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+        Entrar com Google
+      </button>
+    </div>
+    <div class="auth-divider"><span>ou acesse com e-mail</span></div>
+    <form id="login-form" onsubmit="doLogin(event)">
+      <div class="form-group"><label class="form-label">E-mail</label><input id="login-email" class="form-input" type="email" required placeholder="seu@empresa.com" autocomplete="email"></div>
+      <div class="form-group"><label class="form-label">Senha</label><input id="login-pass" class="form-input" type="password" required placeholder="••••••••" autocomplete="current-password"></div>
+      <div id="login-error" style="display:none;background:#FFEBEE;border:1px solid #FFCDD2;border-radius:8px;padding:10px 14px;font-size:13px;color:#C62828;margin-bottom:8px"></div>
+      <button id="login-btn" class="btn btn-primary" style="width:100%;justify-content:center;padding:11px;font-size:14px" type="submit">Entrar no Sistema</button>
+    </form>
+  </div>
+</div>
+
+<!-- ════════════════ APP ════════════════ -->
+<div id="app">
+
+  <!-- SIDEBAR -->
+  <nav class="sidebar">
+    <div class="sidebar-logo">
+      <div class="sidebar-logo-icon">🌿</div>
+      <div><div class="logo-main">PMO Suite</div><div class="logo-sub">Agro Portfolio</div></div>
+    </div>
+    <div class="sidebar-nav">
+      <div class="nav-section">Estratégico</div>
+      <div class="nav-item active" onclick="showSection('dashboard',this)"><span class="nav-icon">▦</span><span class="nav-text">Dashboard</span></div>
+      <div class="nav-section">Portfólio</div>
+      <div class="nav-item" onclick="showSection('projects',this)"><span class="nav-icon">◈</span><span class="nav-text">Projetos</span></div>
+      <div class="nav-item" onclick="showSection('tasks',this)"><span class="nav-icon">◉</span><span class="nav-text">Tarefas</span></div>
+      <div class="nav-item" onclick="showSection('risks',this)"><span class="nav-icon">⚑</span><span class="nav-text">Riscos</span></div>
+      <div class="nav-item" onclick="showSection('resources',this)"><span class="nav-icon">◎</span><span class="nav-text">Recursos</span></div>
+      <div class="nav-section">Análise</div>
+      <div class="nav-item" onclick="showSection('gantt',this)"><span class="nav-icon">≡</span><span class="nav-text">Cronograma</span></div>
+      <div class="nav-item" onclick="showSection('kpis',this)"><span class="nav-icon">◐</span><span class="nav-text">KPIs / EVM</span></div>
+      <div class="nav-item" onclick="showSection('bi',this)"><span class="nav-icon">◑</span><span class="nav-text">Business Intelligence</span></div>
+      <div class="nav-section">Sistema</div>
+      <div class="nav-item" onclick="showSection('integrations',this)"><span class="nav-icon">⚙</span><span class="nav-text">Integrações</span></div>
+    </div>
+    <div class="sidebar-user">
+      <div class="user-info" style="cursor:default">
+        <div class="user-avatar" id="user-avatar">A</div>
+        <div style="min-width:0">
+          <div class="user-name" id="user-name">Usuário</div>
+          <div class="user-role" id="user-role" style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">
+            <span id="user-role-text">—</span>
+          </div>
+        </div>
+      </div>
+      <!-- Botão de troca de departamento: visível apenas para gestores multi-dept -->
+      <button id="dept-switch-btn" onclick="openDeptSwitch()"
+        style="display:none;width:100%;margin-bottom:6px;padding:7px 10px;background:var(--g50);
+               border:1px solid rgba(46,125,50,.3);border-radius:var(--r8);color:var(--g800);
+               font-size:12px;font-weight:500;cursor:pointer;align-items:center;justify-content:center;gap:6px;
+               transition:all .15s"
+        onmouseover="this.style.background='var(--g100)'"
+        onmouseout="this.style.background='var(--g50)'">
+        🔀 Trocar Departamento
+      </button>
+      <div style="display:flex;gap:6px;margin-bottom:8px">
+        <button class="btn btn-secondary btn-sm" style="flex:1;justify-content:center" onclick="openProfile()">👤 Perfil</button>
+      </div>
+      <button class="btn-logout" onclick="doLogout()">↪ Sair</button>
+    </div>
+  </nav>
+
+  <!-- MAIN -->
+  <div class="main">
+    <div class="topbar">
+      <div style="display:flex;align-items:center;gap:12px">
+        <button class="mobile-menu-btn" onclick="toggleSidebar()"><svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect y="2" width="18" height="2" rx="1" fill="currentColor"/><rect y="8" width="18" height="2" rx="1" fill="currentColor"/><rect y="14" width="18" height="2" rx="1" fill="currentColor"/></svg></button>
+        <div id="topbar-title" class="topbar-title">Dashboard Executivo</div>
+      </div>
+      <div class="topbar-right">
+        <div style="position:relative">
+          <button id="notif-btn" class="topbar-icon-btn" onclick="toggleNotifPanel()" title="Notificações">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+            <span id="notif-badge" style="display:none;position:absolute;top:-4px;right:-4px;width:18px;height:18px;background:var(--err);color:#fff;border-radius:50%;font-size:10px;font-weight:700;display:none;align-items:center;justify-content:center;border:2px solid var(--white)">0</span>
+          </button>
+          <div id="notif-panel" class="notif-panel" style="display:none">
+            <div style="padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+              <span style="font-size:14px;font-weight:600">Notificações</span>
+              <button onclick="markAllRead()" style="background:none;border:none;font-size:12px;color:var(--info);cursor:pointer;font-family:var(--font)">Marcar todas lidas</button>
+            </div>
+            <div id="notif-list" style="overflow-y:auto;max-height:400px"></div>
+          </div>
+        </div>
+        <span id="status-pill" class="topbar-pill green">Portfólio OK</span>
+      </div>
+    </div>
+
+    <div class="content">
+
+      <!-- ═══ DASHBOARD ═══ -->
+      <div class="section active" id="sec-dashboard">
+        <div class="page-header">
+          <div><div class="page-title">Dashboard Executivo</div><div class="page-desc">Visão consolidada em tempo real</div></div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <select class="filter-input" id="filter-area" onchange="loadDashboard()" style="min-width:120px"><option value="">Todas as áreas</option><option>T.I</option><option>Financeiro</option><option>Controladoria</option><option>Fiscal</option><option>RH/DP</option><option>Compras</option><option>Suprimentos MP</option><option>Qualidade/Laboratório</option><option>Produção</option></select>
+            <input type="date" class="filter-input" id="filter-period-start" onchange="loadDashboard()" title="Início do período">
+            <input type="date" class="filter-input" id="filter-period-end" onchange="loadDashboard()" title="Fim do período">
+            <button class="btn btn-secondary" onclick="loadDashboard()">↺</button>
+            <button class="btn btn-secondary" onclick="exportByArea()" title="Relatório consolidado por área">📊 Exportar</button>
+          </div>
+        </div>
+        <div class="grid g4" style="margin-bottom:16px">
+          <div class="card"><div class="kpi-icon neutral">📁</div><div class="kpi-val" id="kpi-total">—</div><div class="kpi-label">Total Projetos</div></div>
+          <div class="card"><div class="kpi-icon blue">⟳</div><div class="kpi-val" id="kpi-active">—</div><div class="kpi-label">Em Andamento</div></div>
+          <div class="card"><div class="kpi-icon green">✓</div><div class="kpi-val" id="kpi-done" style="color:var(--success)">—</div><div class="kpi-label">Concluídos</div></div>
+          <div class="card"><div class="kpi-icon red">!</div><div class="kpi-val" id="kpi-delayed" style="color:var(--err)">—</div><div class="kpi-label">Atrasados</div></div>
+        </div>
+        <div class="grid g4" style="margin-bottom:20px">
+          <div class="card"><div class="kpi-icon green">%</div><div class="kpi-val" id="kpi-progress">—</div><div class="kpi-label">Progresso Médio</div></div>
+          <div class="card"><div class="kpi-icon neutral">R$</div><div class="kpi-val" id="kpi-budget">—</div><div class="kpi-label">Orçamento Total</div></div>
+          <div class="card"><div class="kpi-icon green">↑</div><div class="kpi-val" id="kpi-actual">—</div><div class="kpi-label">Custo Realizado</div></div>
+          <div class="card"><div class="kpi-icon yellow">⚑</div><div class="kpi-val" id="kpi-risks" style="color:var(--warn)">—</div><div class="kpi-label">Riscos Ativos</div></div>
+        </div>
+        <div class="grid g3" style="margin-bottom:16px">
+          <div class="card"><div class="chart-title">Status do Portfólio</div><div class="chart-sub">Distribuição atual</div><canvas id="chart-status" height="200"></canvas></div>
+          <div class="card"><div class="chart-title">Por Prioridade</div><div class="chart-sub">Criticidade</div><canvas id="chart-priority" height="200"></canvas></div>
+          <div class="card"><div class="chart-title">Projetos por Área</div><div class="chart-sub">Quantidade e progresso</div><canvas id="chart-area" height="200"></canvas></div>
+        </div>
+        <div class="grid g2" style="margin-bottom:16px">
+          <div class="card"><div class="chart-title">Orçado vs. Realizado</div><div class="chart-sub">Valores em R$ mil</div><canvas id="chart-financial" height="210"></canvas></div>
+          <div class="card"><div class="chart-title">Evolução do Portfólio</div><div class="chart-sub">Planejado vs. real</div><canvas id="chart-evolution" height="210"></canvas></div>
+        </div>
+        <div class="grid g2" style="margin-bottom:0">
+          <div class="card">
+            <div class="chart-title">Projetos Atrasados</div><div class="chart-sub">Requerem atenção imediata</div>
+            <div class="table-wrap"><table><thead><tr><th>Área</th><th>Projeto</th><th>Status</th><th>Progresso</th><th>Prazo</th><th>Riscos</th></tr></thead>
+            <tbody id="critical-tbody"><tr><td colspan="6" class="loading"><div class="spinner"></div></td></tr></tbody></table></div>
+          </div>
+          <div class="card">
+            <div class="chart-title">⏰ Vencendo em 14 dias</div><div class="chart-sub">Tarefas com prazo próximo</div>
+            <div id="expiring-panel" style="display:none"></div>
+            <div id="expiring-empty" style="color:var(--text3);font-size:13px;padding:8px 0">Nenhuma tarefa vencendo nos próximos 14 dias ✅</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ PROJECTS ═══ -->
+      <div class="section" id="sec-projects">
+        <div class="page-header">
+          <div><div class="page-title">Gestão de Projetos</div><div class="page-desc">Portfólio completo</div></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn btn-secondary" onclick="openExcelImport()">📥 Importar Excel</button>
+            <button class="btn btn-primary" onclick="openCreateProject()">+ Novo Projeto</button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="filter-bar">
+            <input id="proj-search" class="filter-input" placeholder="Buscar…" oninput="filterProjects()" style="min-width:200px">
+            <select id="proj-filter-status" class="filter-input" onchange="filterProjects()"><option value="">Todos os status</option><option>Planejado</option><option>Em andamento</option><option>Concluído</option><option>Atrasado</option></select>
+            <select id="proj-filter-area" class="filter-input" onchange="filterProjects()"><option value="">Todas as áreas</option><option>T.I</option><option>Financeiro</option><option>Controladoria</option><option>Fiscal</option><option>RH/DP</option><option>Compras</option><option>Suprimentos MP</option><option>Qualidade/Laboratório</option><option>Produção</option></select>
+            <button class="btn btn-secondary btn-sm" onclick="loadProjects()">↺</button>
+            <a href="/api/dashboard/export/projects.csv" class="btn btn-secondary btn-sm">⬇ CSV</a>
+          </div>
+          <div class="table-wrap"><table>
+            <thead><tr><th>Código</th><th>Nome/Área</th><th>Gestor</th><th>Início</th><th>Término</th><th>Status</th><th>Prior.</th><th>Orçamento</th><th>Progresso</th><th>Riscos</th><th>Ações</th></tr></thead>
+            <tbody id="projects-tbody"><tr><td colspan="11" class="loading"><div class="spinner"></div></td></tr></tbody>
+          </table></div>
+        </div>
+      </div>
+
+      <!-- ═══ TASKS ═══ -->
+      <div class="section" id="sec-tasks">
+        <div class="page-header">
+          <div><div class="page-title">Gestão de Tarefas</div><div class="page-desc">Progresso atualiza o projeto automaticamente</div></div>
+          <div style="display:flex;gap:8px"><a href="/api/dashboard/export/tasks.csv" class="btn btn-secondary">⬇ CSV</a><button class="btn btn-primary" onclick="openCreateTask()">+ Nova Tarefa</button></div>
+        </div>
+        <div class="card">
+          <div class="filter-bar">
+            <input id="task-search" class="filter-input" placeholder="Buscar…" oninput="filterTasks()" style="min-width:200px">
+            <select id="task-filter-project" class="filter-input" onchange="filterTasks()"><option value="">— Todos os projetos —</option></select>
+            <select id="task-filter-eap" class="filter-input" onchange="filterTasks()" style="min-width:140px">
+              <option value="">Todos os níveis</option>
+              <option value="1">Nível 1 — Objetivos</option>
+              <option value="2">Nível 2 — Ações</option>
+              <option value="3">Nível 3 — Sub-ações</option>
+            </select>
+            <select id="task-filter-status" class="filter-input" onchange="filterTasks()" style="min-width:140px">
+              <option value="">Todos os status</option>
+              <option>Planejado</option>
+              <option>Em andamento</option>
+              <option>Atrasado</option>
+              <option>Concluído</option>
+              <option>Em espera</option>
+            </select>
+            <button class="btn btn-secondary btn-sm" onclick="loadTasks()">↺</button>
+          </div>
+          <div class="table-wrap"><table>
+            <thead><tr><th>Projeto</th><th>Tarefa</th><th>Status</th><th>Progresso</th><th>Início</th><th>Fim</th><th>Responsável</th><th>Marco</th><th>Ações</th></tr></thead>
+            <tbody id="tasks-tbody"><tr><td colspan="9" class="loading"><div class="spinner"></div></td></tr></tbody>
+          </table></div>
+        </div>
+      </div>
+
+      <!-- ═══ RISKS ═══ -->
+      <div class="section" id="sec-risks">
+        <div class="page-header">
+          <div><div class="page-title">Gestão de Riscos</div><div class="page-desc">Identificação, avaliação e mitigação</div></div>
+          <button class="btn btn-primary" onclick="openCreateRisk()">+ Novo Risco</button>
+        </div>
+        <div class="card">
+          <div class="filter-bar">
+            <select id="risk-filter-project" class="filter-input" onchange="filterRisks()"><option value="">— Todos —</option></select>
+            <select id="risk-filter-status" class="filter-input" onchange="filterRisks()"><option value="">Todos os status</option><option>Identificado</option><option>Ativo</option><option>Monitorando</option><option>Encerrado</option></select>
+            <button class="btn btn-secondary btn-sm" onclick="loadRisks()">↺</button>
+          </div>
+          <div class="table-wrap"><table>
+            <thead><tr><th>Projeto</th><th>Código</th><th>Descrição</th><th>Prob.</th><th>Imp.</th><th>Severidade</th><th>Mitigação</th><th>Responsável</th><th>Status</th><th>Ações</th></tr></thead>
+            <tbody id="risks-tbody"><tr><td colspan="10" class="loading"><div class="spinner"></div></td></tr></tbody>
+          </table></div>
+        </div>
+      </div>
+
+      <!-- ═══ RESOURCES ═══ -->
+      <div class="section" id="sec-resources">
+        <div class="page-header">
+          <div><div class="page-title">Gestão de Recursos</div><div class="page-desc">Pessoas, carga e alocação em projetos</div></div>
+          <button class="btn btn-primary" onclick="openCreateResource()">+ Novo Recurso</button>
+        </div>
+        <div class="card">
+          <div class="table-wrap"><table>
+            <thead><tr><th>Nome</th><th>Função</th><th>E-mail</th><th>Carga Total</th><th>Custo/Mês</th><th>Projetos</th><th>Disponib.</th><th>Ações</th></tr></thead>
+            <tbody id="resources-tbody"><tr><td colspan="8" class="loading"><div class="spinner"></div></td></tr></tbody>
+          </table></div>
+        </div>
+      </div>
+
+      <!-- ═══ GANTT ═══ -->
+      <div class="section" id="sec-gantt">
+        <div class="page-header">
+          <div><div class="page-title">Cronograma — Gantt</div><div class="page-desc">Visão temporal com baseline comparativo</div></div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <select id="gantt-filter" class="filter-input" onchange="loadGantt()"><option value="">— Todos os projetos —</option></select>
+            <button class="btn btn-secondary btn-sm" onclick="loadGantt()">↺</button>
+          </div>
+        </div>
+        <div class="card"><div id="gantt-body" class="loading"><div class="spinner"></div> Carregando…</div></div>
+        <div style="display:flex;gap:16px;font-size:12px;color:var(--text2);margin-top:10px;flex-wrap:wrap">
+          <span><span style="display:inline-block;width:12px;height:8px;background:var(--g700);border-radius:2px;margin-right:4px"></span>No Prazo</span>
+          <span><span style="display:inline-block;width:12px;height:8px;background:#EF6C00;border-radius:2px;margin-right:4px"></span>Em Risco</span>
+          <span><span style="display:inline-block;width:12px;height:8px;background:var(--err);border-radius:2px;margin-right:4px"></span>Atrasado</span>
+          <span><span style="display:inline-block;width:12px;height:8px;background:var(--border-md);border-radius:2px;margin-right:4px"></span>Baseline</span>
+        </div>
+      </div>
+
+      <!-- ═══ KPIs ═══ -->
+      <div class="section" id="sec-kpis">
+        <div class="page-header">
+          <div><div class="page-title">KPIs — Earned Value Management</div><div class="page-desc">SPI, CPI e Health Score calculados automaticamente</div></div>
+          <button class="btn btn-secondary" onclick="loadKpis()">↺ Recalcular</button>
+        </div>
+        <div class="info-banner">
+          <span style="font-size:16px">ℹ</span>
+          <div style="font-size:13px"><b>Fórmulas:</b> <code>SPI = EV/PV</code> &nbsp; <code>CPI = EV/AC</code> &nbsp; <code>SV = EV−PV</code> &nbsp; <span style="color:var(--text3)">≥ 1 = favorável</span></div>
+        </div>
+        <div class="card">
+          <div class="table-wrap"><table>
+            <thead><tr><th>Código</th><th>Projeto</th><th>PV</th><th>EV</th><th>AC</th><th>SPI</th><th>CPI</th><th>Desvio SV</th><th>Health Score</th></tr></thead>
+            <tbody id="kpis-tbody"><tr><td colspan="9" class="loading"><div class="spinner"></div></td></tr></tbody>
+          </table></div>
+        </div>
+        <div class="card" style="margin-top:16px">
+          <div class="chart-title">Como interpretar o Health Score</div>
+          <div class="chart-sub">Pontuação composta de 5 dimensões</div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;font-size:13px">
+            <div style="padding:12px;background:var(--g50);border-radius:8px"><b style="color:var(--g800)">Prazo (30%)</b><br><span style="color:var(--text2)">Baseado no SPI</span></div>
+            <div style="padding:12px;background:var(--g50);border-radius:8px"><b style="color:var(--g800)">Custo (25%)</b><br><span style="color:var(--text2)">Baseado no CPI</span></div>
+            <div style="padding:12px;background:var(--g50);border-radius:8px"><b style="color:var(--g800)">Escopo (20%)</b><br><span style="color:var(--text2)">% entregáveis concluídos</span></div>
+            <div style="padding:12px;background:var(--g50);border-radius:8px"><b style="color:var(--g800)">Riscos (15%)</b><br><span style="color:var(--text2)">Severidade dos ativos</span></div>
+            <div style="padding:12px;background:var(--g50);border-radius:8px"><b style="color:var(--g800)">Base (10%)</b><br><span style="color:var(--text2)">Fixo por projeto ativo</span></div>
+          </div>
+          <div style="margin-top:12px;display:flex;gap:16px;flex-wrap:wrap;font-size:12px">
+            <span><span class="badge badge-green">85–100</span> Saudável</span>
+            <span><span class="badge badge-yellow">60–84</span> Alerta</span>
+            <span><span class="badge badge-red">&lt;60</span> Crítico</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ BI ═══ -->
+      <div class="section" id="sec-bi">
+        <div class="page-header">
+          <div><div class="page-title">Business Intelligence</div><div class="page-desc">Análises avançadas de performance</div></div>
+          <button class="btn btn-secondary" onclick="loadBi()">↺</button>
+        </div>
+        <div class="grid g2" style="margin-bottom:16px">
+          <div class="card"><div class="chart-title">Performance por Gestor</div><div class="chart-sub">Radar comparativo</div><canvas id="bi-chart-mgr" height="260"></canvas></div>
+          <div class="card"><div class="chart-title">Consumo de Orçamento</div><div class="chart-sub">Orçado vs. realizado</div><canvas id="bi-chart-burn" height="260"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="chart-title">Performance por Gestor</div>
+          <div class="table-wrap"><table>
+            <thead><tr><th>Gestor</th><th>Projetos</th><th>Progresso</th><th>Budget</th><th>Realizado</th><th>Atrasados</th><th>Concluídos</th></tr></thead>
+            <tbody id="bi-mgr-tbody"><tr><td colspan="7" class="loading"><div class="spinner"></div></td></tr></tbody>
+          </table></div>
+        </div>
+      </div>
+
+      <!-- ═══ INTEGRATIONS ═══ -->
+      <div class="section" id="sec-integrations">
+        <div class="page-header">
+          <div><div class="page-title">Integrações e Configurações</div><div class="page-desc">Conecte serviços externos</div></div>
+          <button class="btn btn-secondary" onclick="loadIntegrations()">↺</button>
+        </div>
+        <div class="grid g2" style="margin-bottom:20px">
+          <div class="card">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+              <div style="width:42px;height:42px;border-radius:var(--r8);background:var(--white);border:1px solid var(--border);display:flex;align-items:center;justify-content:center">
+                <svg width="22" height="22" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+              </div>
+              <div><div style="font-size:14px;font-weight:600">Google</div><div style="font-size:11px;color:var(--text2)">OAuth 2.0 + Calendar</div></div>
+              <div style="margin-left:auto" id="google-badge"><span class="badge badge-neutral">Não conectado</span></div>
+            </div>
+            <div style="font-size:13px;color:var(--text2);margin-bottom:14px;line-height:1.6" id="google-detail">Conecte para login social e Google Calendar.</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button class="btn btn-primary btn-sm" onclick="connectGoogle()" id="btn-connect-google">Conectar Google</button>
+              <button class="btn btn-danger btn-sm" onclick="disconnectGoogle()" id="btn-disconnect-google" style="display:none">Desconectar</button>
+            </div>
+          </div>
+          <div class="card">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+              <div style="width:42px;height:42px;border-radius:var(--r8);background:var(--g50);border:1px solid rgba(46,125,50,.2);display:flex;align-items:center;justify-content:center;font-size:22px">📅</div>
+              <div><div style="font-size:14px;font-weight:600">Google Calendar</div><div style="font-size:11px;color:var(--text2)">Sync de tarefas</div></div>
+              <div style="margin-left:auto" id="cal-badge"><span class="badge badge-neutral">Inativo</span></div>
+            </div>
+            <div style="font-size:12px;color:var(--text2);margin-bottom:14px" id="cal-events"></div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button class="btn btn-primary btn-sm" onclick="syncCalendar()">📅 Sincronizar</button>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="chart-title">Guia de Configuração Google OAuth</div>
+          <ol style="font-size:13px;color:var(--text2);line-height:2;padding-left:18px">
+            <li>Acesse <a href="https://console.cloud.google.com/" target="_blank" style="color:var(--info)">console.cloud.google.com</a> → Criar projeto</li>
+            <li><b>APIs & Services → Credentials → Create OAuth 2.0 Client</b></li>
+            <li>Redirect URI: <code style="background:var(--subtle);padding:1px 5px;border-radius:3px">http://localhost:3000/api/auth/google/callback</code></li>
+            <li>Ative <b>Google Calendar API</b> em Library</li>
+            <li>Preencha no <code style="background:var(--subtle);padding:1px 5px;border-radius:3px">.env</code>: <code>GOOGLE_CLIENT_ID</code> e <code>GOOGLE_CLIENT_SECRET</code></li>
+            <li>Reinicie o servidor</li>
+          </ol>
+        </div>
+      </div>
+
+    </div><!-- /content -->
+  </div><!-- /main -->
+</div><!-- /app -->
+
+<!-- ════════════════ MODALS ════════════════ -->
+
+<!-- View Project -->
+<div class="modal-overlay" id="modal-view"><div class="modal modal-lg">
+  <div class="modal-header"><div class="modal-title" id="view-title">Detalhes</div><button class="modal-close" onclick="closeModal('modal-view')">✕</button></div>
+  <div class="modal-body" id="view-body"></div>
+  <div class="modal-footer"><button class="btn btn-secondary" onclick="closeModal('modal-view')">Fechar</button></div>
+</div></div>
+
+<!-- Create/Edit Project -->
+<div class="modal-overlay" id="modal-project"><div class="modal modal-lg">
+  <div class="modal-header"><div class="modal-title" id="proj-modal-title">Novo Projeto</div><button class="modal-close" onclick="closeModal('modal-project')">✕</button></div>
+  <form id="proj-form" onsubmit="saveProject(event)">
+    <input type="hidden" id="proj-form-id">
+    <div style="font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.6px;margin-bottom:14px">Informações Gerais</div>
+    <div class="form-grid">
+      <div class="form-group"><label class="form-label">Código *</label><input id="proj-code" class="form-input" required placeholder="P-010"></div>
+      <div class="form-group"><label class="form-label">Nome *</label><input id="proj-name" class="form-input" required placeholder="Nome do projeto"></div>
+      <div class="form-group"><label class="form-label">Área</label><select id="proj-area" class="form-select"><option value="">—</option><option>T.I</option><option>Financeiro</option><option>Controladoria</option><option>Fiscal</option><option>RH/DP</option><option>Compras</option><option>Suprimentos MP</option><option>Qualidade/Laboratório</option><option>Produção</option></select></div>
+      <div class="form-group"><label class="form-label">Gestor</label><select id="proj-manager" class="form-select"></select></div>
+      <div class="form-group"><label class="form-label">Data Início</label><input id="proj-start-date" class="form-input" type="date"></div>
+      <div class="form-group"><label class="form-label">Data Término</label><input id="proj-end-date" class="form-input" type="date"></div>
+      <div class="form-group"><label class="form-label">Status</label><select id="proj-status" class="form-select"><option>Planejado</option><option>Em andamento</option><option>Concluído</option><option>Atrasado</option></select></div>
+      <div class="form-group"><label class="form-label">Prioridade</label><select id="proj-priority" class="form-select"><option>Alta</option><option selected>Média</option><option>Baixa</option></select></div>
+      <div class="form-group"><label class="form-label">Orçamento (R$)</label><input id="proj-budget" class="form-input" type="number" placeholder="0" step="1000"></div>
+      <div class="form-group"><label class="form-label">Custo Realizado (R$)</label><input id="proj-actual-cost" class="form-input" type="number" placeholder="0"></div>
+      <div class="form-group"><label class="form-label">Progresso (%)</label><input id="proj-progress" class="form-input" type="number" min="0" max="100" placeholder="0"></div>
+      <div class="form-group"><label class="form-label">Complexidade</label><select id="proj-complexity" class="form-select"><option>Alta</option><option selected>Média</option><option>Baixa</option></select></div>
+      <div class="form-group"><label class="form-label">Impacto Estratégico</label><select id="proj-strategic-impact" class="form-select"><option>Estratégico</option><option>Alto</option><option selected>Médio</option><option>Baixo</option></select></div>
+    </div>
+    <div class="divider"></div>
+    <div class="form-group"><label class="form-label">Objetivo Estratégico</label><textarea id="proj-objective" class="form-textarea" placeholder="Qual o objetivo deste projeto?"></textarea></div>
+    <div class="form-group"><label class="form-label">Descrição</label><textarea id="proj-description" class="form-textarea" placeholder="Contexto e detalhes"></textarea></div>
+    <div class="form-grid">
+      <div class="form-group"><label class="form-label">Escopo Incluído</label><textarea id="proj-scope-in" class="form-textarea"></textarea></div>
+      <div class="form-group"><label class="form-label">Escopo Excluído</label><textarea id="proj-scope-out" class="form-textarea"></textarea></div>
+    </div>
+    <div class="form-group"><label class="form-label">Critérios de Sucesso</label><textarea id="proj-success-criteria" class="form-textarea"></textarea></div>
+    <div class="modal-footer"><button type="button" class="btn btn-secondary" onclick="closeModal('modal-project')">Cancelar</button><button type="submit" class="btn btn-primary">Salvar Projeto</button></div>
+  </form>
+</div></div>
+
+<!-- Create/Edit Task -->
+<div class="modal-overlay" id="modal-task"><div class="modal">
+  <div class="modal-header"><div class="modal-title" id="task-modal-title">Nova Tarefa</div><button class="modal-close" onclick="closeModal('modal-task')">✕</button></div>
+  <form id="task-form" onsubmit="saveTask(event)">
+    <input type="hidden" id="task-form-id">
+    <div class="form-group"><label class="form-label">Projeto *</label><select id="task-proj-id" class="form-select" required></select></div>
+    <div class="form-group"><label class="form-label">Nome da Tarefa *</label><input id="task-name" class="form-input" required placeholder="Descreva a tarefa"></div>
+    <div class="form-group"><label class="form-label">Descrição</label><textarea id="task-description" class="form-textarea"></textarea></div>
+    <div class="form-grid">
+      <div class="form-group"><label class="form-label">Data Início</label><input id="task-start-date" class="form-input" type="date"></div>
+      <div class="form-group"><label class="form-label">Data Fim</label><input id="task-end-date" class="form-input" type="date"></div>
+      <div class="form-group"><label class="form-label">Progresso (%)</label><input id="task-progress" class="form-input" type="number" min="0" max="100" value="0"></div>
+      <div class="form-group"><label class="form-label">Status</label><select id="task-status" class="form-select"><option>Planejado</option><option>Em andamento</option><option>Concluído</option><option>Atrasado</option><option>Em espera</option></select></div>
+      <div class="form-group"><label class="form-label">Código EAP</label><input id="task-eap-code" class="form-input" placeholder="1.1"></div>
+      <div class="form-group"><label class="form-label">Nível EAP</label><input id="task-eap-level" class="form-input" type="number" min="1" max="5" value="1"></div>
+    </div>
+    <div class="form-group"><label class="form-label">Responsável</label><select id="task-assignee" class="form-select"></select></div>
+    <div class="form-group" style="display:flex;align-items:center;gap:10px"><input id="task-milestone" type="checkbox" style="width:16px;height:16px;accent-color:var(--g700)"><label style="font-size:13px;color:var(--text2);cursor:pointer">Marco (Milestone)</label></div>
+    <div class="modal-footer"><button type="button" class="btn btn-secondary" onclick="closeModal('modal-task')">Cancelar</button><button type="submit" class="btn btn-primary">Salvar Tarefa</button></div>
+  </form>
+</div></div>
+
+<!-- Create/Edit Risk -->
+<div class="modal-overlay" id="modal-risk"><div class="modal">
+  <div class="modal-header"><div class="modal-title" id="risk-modal-title">Novo Risco</div><button class="modal-close" onclick="closeModal('modal-risk')">✕</button></div>
+  <form id="risk-form" onsubmit="saveRisk(event)">
+    <input type="hidden" id="risk-form-id">
+    <div class="form-grid">
+      <div class="form-group"><label class="form-label">Projeto *</label><select id="risk-proj-id" class="form-select" required></select></div>
+      <div class="form-group"><label class="form-label">Código</label><input id="risk-code" class="form-input" placeholder="R-001"></div>
+    </div>
+    <div class="form-group"><label class="form-label">Descrição *</label><textarea id="risk-description" class="form-textarea" required placeholder="Descreva o risco"></textarea></div>
+    <div class="form-grid-3">
+      <div class="form-group"><label class="form-label">Probabilidade (1–5)</label><select id="risk-probability" class="form-select" onchange="updateSeverityPreview()"><option value="1">1 — Muito Baixa</option><option value="2">2 — Baixa</option><option value="3" selected>3 — Média</option><option value="4">4 — Alta</option><option value="5">5 — Muito Alta</option></select></div>
+      <div class="form-group"><label class="form-label">Impacto (1–5)</label><select id="risk-impact" class="form-select" onchange="updateSeverityPreview()"><option value="1">1 — Muito Baixo</option><option value="2">2 — Baixo</option><option value="3" selected>3 — Médio</option><option value="4">4 — Alto</option><option value="5">5 — Muito Alto</option></select></div>
+      <div class="form-group"><label class="form-label">Severidade</label><div id="risk-severity-preview" style="margin-top:8px"></div></div>
+    </div>
+    <div class="form-group"><label class="form-label">Plano de Mitigação</label><textarea id="risk-mitigation" class="form-textarea"></textarea></div>
+    <div class="form-group"><label class="form-label">Plano de Contingência</label><textarea id="risk-contingency" class="form-textarea"></textarea></div>
+    <div class="form-grid">
+      <div class="form-group"><label class="form-label">Responsável</label><select id="risk-owner" class="form-select"></select></div>
+      <div class="form-group"><label class="form-label">Status</label><select id="risk-status" class="form-select"><option>Identificado</option><option>Ativo</option><option>Monitorando</option><option>Encerrado</option></select></div>
+    </div>
+    <div class="modal-footer"><button type="button" class="btn btn-secondary" onclick="closeModal('modal-risk')">Cancelar</button><button type="submit" class="btn btn-primary">Salvar Risco</button></div>
+  </form>
+</div></div>
+
+<!-- Create/Edit Resource -->
+<div class="modal-overlay" id="modal-resource"><div class="modal">
+  <div class="modal-header"><div class="modal-title" id="res-modal-title">Novo Recurso</div><button class="modal-close" onclick="closeModal('modal-resource')">✕</button></div>
+  <form id="res-form" onsubmit="saveResource(event)">
+    <input type="hidden" id="res-form-id">
+    <div class="form-grid">
+      <div class="form-group"><label class="form-label">Nome *</label><input id="res-name" class="form-input" required></div>
+      <div class="form-group"><label class="form-label">Função/Cargo</label><input id="res-role" class="form-input"></div>
+      <div class="form-group"><label class="form-label">E-mail</label><input id="res-email" class="form-input" type="email"></div>
+      <div class="form-group"><label class="form-label">Custo Mensal (R$)</label><input id="res-cost-month" class="form-input" type="number" placeholder="0"></div>
+      <div class="form-group"><label class="form-label">Disponibilidade (%)</label><input id="res-availability" class="form-input" type="number" min="0" max="100" value="100"></div>
+    </div>
+    <div class="modal-footer"><button type="button" class="btn btn-secondary" onclick="closeModal('modal-resource')">Cancelar</button><button type="submit" class="btn btn-primary">Salvar</button></div>
+  </form>
+</div></div>
+
+<!-- Allocate Resource -->
+<div class="modal-overlay" id="modal-alloc"><div class="modal">
+  <div class="modal-header"><div class="modal-title">Alocar — <span id="alloc-res-name" style="color:var(--g800)"></span></div><button class="modal-close" onclick="closeModal('modal-alloc')">✕</button></div>
+  <form id="alloc-form" onsubmit="saveAlloc(event)">
+    <div class="form-group"><label class="form-label">Projeto *</label><select id="alloc-proj-id" class="form-select" required></select></div>
+    <div class="form-group"><label class="form-label">Carga de Trabalho (%)</label><input id="alloc-workload" class="form-input" type="number" min="1" max="200" value="100" required></div>
+    <div class="form-grid">
+      <div class="form-group"><label class="form-label">Início</label><input id="alloc-start" class="form-input" type="date"></div>
+      <div class="form-group"><label class="form-label">Fim</label><input id="alloc-end" class="form-input" type="date"></div>
+    </div>
+    <div class="modal-footer"><button type="button" class="btn btn-secondary" onclick="closeModal('modal-alloc')">Cancelar</button><button type="submit" class="btn btn-primary">Confirmar Alocação</button></div>
+  </form>
+</div></div>
+
+<!-- Profile -->
+<div class="modal-overlay" id="modal-profile"><div class="modal">
+  <div class="modal-header"><div class="modal-title">Meu Perfil</div><button class="modal-close" onclick="closeModal('modal-profile')">✕</button></div>
+  <div class="modal-body">
+    <div class="profile-card">
+      <div class="profile-avatar-lg" id="profile-avatar">A</div>
+      <div style="font-size:18px;font-weight:700" id="profile-name"></div>
+      <div style="font-size:13px;color:var(--text2);margin-top:4px" id="profile-email"></div>
+      <div style="margin-top:8px"><span class="badge badge-green" id="profile-role"></span></div>
+    </div>
+    <div class="tabs"><button class="tab-btn active" onclick="showProfileTab('info',this)">Dados</button><button class="tab-btn" onclick="showProfileTab('password',this)">Senha</button></div>
+    <div id="profile-tab-info">
+      <form onsubmit="saveName(event)">
+        <div class="form-group"><label class="form-label">Nome</label><input id="profile-name-input" class="form-input" required></div>
+        <button type="submit" class="btn btn-primary btn-sm">Salvar Nome</button>
+      </form>
+    </div>
+    <div id="profile-tab-password" style="display:none">
+      <form id="pw-form" onsubmit="savePassword(event)">
+        <div class="form-group"><label class="form-label">Senha Atual</label><input id="pw-current" class="form-input" type="password" required></div>
+        <div class="form-group"><label class="form-label">Nova Senha</label><input id="pw-new" class="form-input" type="password" required minlength="6"></div>
+        <div class="form-group"><label class="form-label">Confirmar Nova Senha</label><input id="pw-confirm" class="form-input" type="password" required><div class="form-hint">Mínimo 6 caracteres</div></div>
+        <button type="submit" class="btn btn-primary btn-sm">Alterar Senha</button>
+      </form>
+    </div>
+  </div>
+  <div class="modal-footer"><button class="btn btn-secondary" onclick="closeModal('modal-profile')">Fechar</button></div>
+</div></div>
+
+<!-- Excel Import -->
+<div class="modal-overlay" id="modal-excel"><div class="modal modal-lg">
+  <div class="modal-header">
+    <div>
+      <div class="modal-title">Importar Plano de Ação via Excel</div>
+      <div style="font-size:12px;color:var(--text2);margin-top:2px">Modelo PMO 2026 · arquivo .xlsx</div>
+    </div>
+    <button class="modal-close" onclick="closeModal('modal-excel')">✕</button>
+  </div>
+
+  <!-- Stepper -->
+  <div style="display:flex;align-items:center;padding:16px 24px 0;border-bottom:1px solid var(--border)">
+    <div id="xstep-1" style="display:flex;align-items:center;gap:8px;padding-bottom:12px;border-bottom:2px solid var(--g700);margin-right:24px">
+      <div id="xstep-num-1" style="width:24px;height:24px;border-radius:50%;background:var(--g700);color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center">1</div>
+      <span style="font-size:13px;font-weight:600;color:var(--g800)">Upload</span>
+    </div>
+    <div style="flex:1;height:1px;background:var(--border);margin-bottom:12px;margin-right:24px"></div>
+    <div id="xstep-2" style="display:flex;align-items:center;gap:8px;padding-bottom:12px;border-bottom:2px solid transparent;margin-right:24px">
+      <div id="xstep-num-2" style="width:24px;height:24px;border-radius:50%;background:var(--border);color:var(--text3);font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center">2</div>
+      <span style="font-size:13px;font-weight:500;color:var(--text2)">Preview</span>
+    </div>
+    <div style="flex:1;height:1px;background:var(--border);margin-bottom:12px;margin-right:24px"></div>
+    <div id="xstep-3" style="display:flex;align-items:center;gap:8px;padding-bottom:12px;border-bottom:2px solid transparent">
+      <div id="xstep-num-3" style="width:24px;height:24px;border-radius:50%;background:var(--border);color:var(--text3);font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center">3</div>
+      <span style="font-size:13px;font-weight:500;color:var(--text2)">Confirmar</span>
+    </div>
+  </div>
+
+  <!-- STEP 1: Upload -->
+  <div id="xls-step-1" style="padding:24px">
+
+    <!-- Seletor de modo -->
+    <div style="display:flex;gap:8px;margin-bottom:20px">
+      <button id="xls-mode-single" onclick="xlsToggleBatch(false)"
+        style="flex:1;padding:10px;border-radius:var(--r8);border:2px solid var(--g600);background:var(--g50);font-size:13px;font-weight:600;color:var(--g800);cursor:pointer;transition:all .15s">
+        📄 Arquivo único
+      </button>
+      <button id="xls-mode-batch" onclick="xlsToggleBatch(true)"
+        style="flex:1;padding:10px;border-radius:var(--r8);border:2px solid var(--border);background:var(--card);font-size:13px;font-weight:400;color:var(--text2);cursor:pointer;transition:all .15s">
+        📦 Importar em lote
+      </button>
+    </div>
+
+    <!-- Área arquivo único -->
+    <div id="xls-single-area">
+      <div id="xls-dropzone"
+        style="border:2px dashed var(--border-md);border-radius:var(--r12);padding:48px 24px;text-align:center;cursor:pointer;transition:all .2s;background:var(--subtle)"
+        onclick="document.getElementById('xls-file-input').click()"
+        ondragover="xlsDragOver(event)" ondragleave="xlsDragLeave()" ondrop="xlsDrop(event)">
+        <div style="font-size:40px;margin-bottom:12px">📊</div>
+        <div style="font-size:15px;font-weight:600;margin-bottom:6px">Arraste ou clique para selecionar</div>
+        <div style="font-size:13px;color:var(--text2)">.xlsx · Máximo 15 MB</div>
+        <div style="margin-top:16px"><span style="background:var(--g100);color:var(--g800);border:1px solid rgba(46,125,50,.25);padding:6px 16px;border-radius:6px;font-size:13px;font-weight:500">Selecionar arquivo</span></div>
+      </div>
+      <input type="file" id="xls-file-input" accept=".xlsx,.xls" style="display:none" onchange="xlsFileSelected(event)">
+      <div id="xls-file-info" style="display:none;margin-top:16px;padding:12px 16px;background:var(--g50);border:1px solid rgba(46,125,50,.2);border-radius:8px;align-items:center;gap:12px">
+        <span style="font-size:24px">📊</span>
+        <div style="flex:1"><div style="font-weight:600" id="xls-fname"></div><div style="font-size:12px;color:var(--text2)" id="xls-fsize"></div></div>
+        <button class="btn btn-secondary btn-sm" onclick="xlsClearFile()">✕</button>
+      </div>
+      <div style="margin-top:16px;padding:13px 16px;background:var(--info-bg);border:1px solid rgba(21,101,192,.2);border-radius:8px;font-size:13px;color:var(--text2)">
+        <b style="color:var(--info)">Formato esperado:</b>
+        Cabeçalho com Nome, Área, Código, Gestor e Datas · Colunas: Código EAP · Ação/Entregável · Responsável · Prioridade · Status · Início · Término · Progresso · Custo Estimado · Custo Realizado · Observações
+        <div style="margin-top:10px"><button class="btn btn-secondary btn-sm" onclick="xlsDownloadTemplate()">⬇ Baixar Template</button></div>
+      </div>
+    </div>
+
+    <!-- Área lote -->
+    <div id="xls-batch-panel" style="display:none">
+      <div id="xls-batch-dropzone"
+        style="border:2px dashed var(--border-md);border-radius:var(--r12);padding:36px 24px;text-align:center;cursor:pointer;transition:all .2s;background:var(--subtle)"
+        onclick="document.getElementById('xls-file-input-batch').click()"
+        ondragover="xlsBatchDragOver(event)" ondragleave="xlsBatchDragLeave()" ondrop="xlsBatchDrop(event)">
+        <div style="font-size:36px;margin-bottom:10px">📦</div>
+        <div style="font-size:15px;font-weight:600;margin-bottom:6px">Selecione todos os arquivos de uma vez</div>
+        <div style="font-size:13px;color:var(--text2)">Cada .xlsx = um projeto independente</div>
+        <div style="margin-top:14px"><span style="background:var(--g100);color:var(--g800);border:1px solid rgba(46,125,50,.25);padding:6px 16px;border-radius:6px;font-size:13px;font-weight:500">Selecionar arquivos</span></div>
+      </div>
+      <input type="file" id="xls-file-input-batch" accept=".xlsx,.xls" multiple style="display:none" onchange="xlsBatchFilesSelected(event)">
+      <div id="xls-batch-list" style="display:none;margin-top:16px"></div>
+    </div>
+
+  </div>
+
+  <!-- STEP 2: Preview -->
+  <div id="xls-step-2" style="display:none;padding:24px;max-height:60vh;overflow-y:auto">
+    <div id="xls-preview"></div>
+  </div>
+
+  <!-- STEP 3: Confirmar -->
+  <div id="xls-step-3" style="display:none;padding:24px">
+    <div id="xls-confirm-body"></div>
+    <div id="xls-import-result" style="display:none;margin-top:16px"></div>
+  </div>
+
+  <div class="modal-footer">
+    <button class="btn btn-secondary" id="xls-btn-back" style="display:none" onclick="xlsSetStep(xlsState.step - 1)">← Voltar</button>
+    <button class="btn btn-secondary" onclick="closeModal('modal-excel')">Cancelar</button>
+    <button class="btn btn-primary" id="xls-btn-next" onclick="xlsNext()" disabled>Próximo →</button>
+  </div>
+</div></div>
+
+
+<!-- Modal: Update Semanal -->
+<div class="modal-overlay" id="modal-weekly"><div class="modal">
+  <div class="modal-header">
+    <div><div class="modal-title">📝 Update Semanal</div>
+    <div style="font-size:12px;color:var(--text2);margin-top:2px" id="weekly-project-name">Projeto</div></div>
+    <button class="modal-close" onclick="closeModal('modal-weekly')">✕</button>
+  </div>
+  <form id="weekly-form" onsubmit="saveWeeklyUpdate(event)" style="padding:24px;display:flex;flex-direction:column;gap:16px">
+    <input type="hidden" id="weekly-project-id">
+    <div class="grid g2">
+      <div class="field">
+        <label class="label">Progresso atual (%)</label>
+        <input type="number" id="weekly-progress" class="input" min="0" max="100" placeholder="Ex: 45">
+      </div>
+      <div class="field">
+        <label class="label">Status atual</label>
+        <select id="weekly-status" class="input">
+          <option value="">— Não alterar —</option>
+          <option>Em andamento</option><option>Atrasado</option><option>Planejado</option><option>Em espera</option><option>Concluído</option>
+        </select>
+      </div>
+    </div>
+    <div class="field">
+      <label class="label">Comentário geral <span style="color:var(--danger)">*</span></label>
+      <textarea id="weekly-comment" class="input" rows="3" required placeholder="Resuma o andamento desta semana…"></textarea>
+    </div>
+    <div class="field">
+      <label class="label">✅ Destaques / Conquistas</label>
+      <textarea id="weekly-highlights" class="input" rows="2" placeholder="O que avançou ou foi concluído?"></textarea>
+    </div>
+    <div class="field">
+      <label class="label">🚧 Bloqueios / Impedimentos</label>
+      <textarea id="weekly-blockers" class="input" rows="2" placeholder="Há algum impedimento que precisa de atenção?"></textarea>
+    </div>
+    <div class="field">
+      <label class="label">🎯 Próximos Passos</label>
+      <textarea id="weekly-next-steps" class="input" rows="2" placeholder="O que será feito na próxima semana?"></textarea>
+    </div>
+    <div class="modal-footer" style="padding:0;border:none">
+      <button type="button" class="btn btn-secondary" onclick="closeModal('modal-weekly')">Cancelar</button>
+      <button type="submit" class="btn btn-primary">💾 Salvar Update</button>
+    </div>
+  </form>
+</div></div>
+
+
+<!-- Modal: Atividades Semanais da Tarefa -->
+<div class="modal-overlay" id="modal-task-updates">
+  <div class="modal modal-lg" style="max-width:860px;overflow:hidden;border-radius:16px">
+
+    <!-- Header gradiente -->
+    <div style="background:linear-gradient(135deg,#1B5E20,#2E7D32);padding:24px 28px;display:flex;justify-content:space-between;align-items:flex-start">
+      <div>
+        <div style="font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#A5D6A7;margin-bottom:4px">Registro de Atividades</div>
+        <div style="font-size:18px;font-weight:700;color:#fff" id="task-update-name">Ação</div>
+      </div>
+      <button onclick="closeModal('modal-task-updates')"
+        style="background:rgba(255,255,255,.15);border:none;color:#fff;width:32px;height:32px;border-radius:8px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center">✕</button>
+    </div>
+
+    <!-- Tabs -->
+    <div style="display:flex;border-bottom:1px solid var(--border);background:var(--card)">
+      <button id="tu-tab-new" onclick="tuTab('new')"
+        style="flex:1;padding:14px;font-size:13px;font-weight:600;border:none;background:none;cursor:pointer;color:var(--g700);border-bottom:2px solid var(--g600)">
+        ➕ Nova Atividade
+      </button>
+      <button id="tu-tab-hist" onclick="tuTab('hist')"
+        style="flex:1;padding:14px;font-size:13px;font-weight:500;border:none;background:none;cursor:pointer;color:var(--text2);border-bottom:2px solid transparent">
+        🕒 Histórico
+      </button>
+    </div>
+
+    <!-- Tab: Nova atividade -->
+    <div id="tu-pane-new" style="padding:24px">
+      <form id="task-update-form" onsubmit="saveTaskUpdate(event)">
+        <input type="hidden" id="task-update-id">
+
+        <!-- Semana + Progresso -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
+          <div>
+            <label style="display:block;font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text2);margin-bottom:8px">📅 Semana de Referência</label>
+            <input type="date" id="tu-week" class="input" required style="width:100%">
+          </div>
+          <div>
+            <label style="display:block;font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text2);margin-bottom:8px">📊 Progresso Atual</label>
+            <div style="background:var(--subtle);border:1.5px solid var(--border);border-radius:10px;padding:12px 14px">
+              <div style="display:flex;justify-content:space-between;margin-bottom:8px">
+                <span style="font-size:12px;color:var(--text2)">0%</span>
+                <span id="tu-progress-val" style="font-size:16px;font-weight:800;color:var(--g700)">0%</span>
+                <span style="font-size:12px;color:var(--text2)">100%</span>
+              </div>
+              <input type="range" id="tu-progress-range" min="0" max="100" step="5" value="0"
+                oninput="document.getElementById('tu-progress-val').textContent=this.value+'%';document.getElementById('tu-progress').value=this.value;this.style.background='linear-gradient(90deg,var(--g600) '+this.value+'%,var(--border) '+this.value+'%)'"
+                style="width:100%;height:6px;border-radius:3px;accent-color:var(--g600);cursor:pointer">
+              <input type="hidden" id="tu-progress" value="0">
+            </div>
+          </div>
+        </div>
+
+        <!-- Executado -->
+        <div style="margin-bottom:16px">
+          <label style="display:block;font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text2);margin-bottom:8px">
+            ✅ O que foi executado <span style="color:var(--danger)">*</span>
+          </label>
+          <textarea id="tu-executed" rows="4" required
+            placeholder="Descreva as atividades realizadas nesta semana…"
+            style="width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:10px;font-size:14px;background:var(--card);color:var(--text);resize:vertical;outline:none;font-family:inherit;transition:border .15s"
+            onfocus="this.style.borderColor='var(--g600)'" onblur="this.style.borderColor='var(--border)'"></textarea>
+        </div>
+
+        <!-- Bloqueios + Próximos -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
+          <div>
+            <label style="display:block;font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text2);margin-bottom:8px">🚧 Bloqueios / Impedimentos</label>
+            <textarea id="tu-blockers" rows="3"
+              placeholder="Algum impedimento que precisa de atenção?"
+              style="width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:10px;font-size:13px;background:var(--card);color:var(--text);resize:vertical;outline:none;font-family:inherit;transition:border .15s"
+              onfocus="this.style.borderColor='#E65100'" onblur="this.style.borderColor='var(--border)'"></textarea>
+          </div>
+          <div>
+            <label style="display:block;font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text2);margin-bottom:8px">🎯 Próximas Atividades</label>
+            <textarea id="tu-next-steps" rows="3"
+              placeholder="O que será feito na próxima semana?"
+              style="width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:10px;font-size:13px;background:var(--card);color:var(--text);resize:vertical;outline:none;font-family:inherit;transition:border .15s"
+              onfocus="this.style.borderColor='var(--g600)'" onblur="this.style.borderColor='var(--border)'"></textarea>
+          </div>
+        </div>
+
+        <button type="submit"
+          style="width:100%;padding:14px;background:linear-gradient(135deg,#1B5E20,#2E7D32);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;transition:opacity .15s"
+          onmouseover="this.style.opacity='.9'" onmouseout="this.style.opacity='1'">
+          💾 Salvar Atividade da Semana
+        </button>
+      </form>
+    </div>
+
+    <!-- Tab: Histórico -->
+    <div id="tu-pane-hist" style="display:none;padding:24px;max-height:480px;overflow-y:auto;background:var(--subtle)">
+      <div id="task-updates-list">
+        <div style="text-align:center;color:var(--text3);padding:40px 0">Carregando…</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast-container" id="toast-container"></div>
+
+<script>
+function showProfileTab(tab, btn) {
+  document.getElementById('profile-tab-info').style.display = tab==='info' ? 'block' : 'none';
+  document.getElementById('profile-tab-password').style.display = tab==='password' ? 'block' : 'none';
+  document.querySelectorAll('#modal-profile .tab-btn').forEach(b => b.classList.remove('active'));
+  btn?.classList.add('active');
+}
+</script>
+
+<script src="js/core.js"></script>
+<script src="js/excel.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
