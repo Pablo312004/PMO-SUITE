@@ -1155,11 +1155,18 @@ async function exportReport(projectId) {
       }
     `;
 
-    // ── Monta linhas da EAP ordenadas ──
+    // ── Monta linhas da EAP ordenadas (com descrição em sub-linha) ──
     const eapRows = tasks.map(t => {
       const isObj = t.eap_level === 1;
       const indent = (t.eap_level - 1) * 18;
       const prog = parseFloat(t.progress || 0).toFixed(0);
+      const descRow = t.description ? `
+        <tr class="${isObj ? 'obj' : 'act'}" style="border-top:none">
+          <td></td>
+          <td colspan="6" style="padding-left:${indent + 14}px;padding-top:0;padding-bottom:8px">
+            <div style="font-size:10px;color:#666;font-style:italic;border-left:2px solid ${isObj?'#2E7D32':'#A5D6A7'};padding-left:8px;margin-top:2px">${t.description}</div>
+          </td>
+        </tr>` : '';
       return `<tr class="${isObj ? 'obj' : 'act'}">
         <td style="font-weight:${isObj?700:500};color:${isObj?'#1B5E20':'#2E7D32'};white-space:nowrap;font-size:11px">${t.eap_code || '—'}</td>
         <td style="padding-left:${indent + 14}px;font-weight:${isObj?700:400}">
@@ -1175,29 +1182,74 @@ async function exportReport(projectId) {
             <span style="font-weight:700;font-size:11px;color:${pColor(t.progress)}">${prog}%</span>
           </div>
         </td>
-      </tr>`;
+      </tr>${descRow}`;
     }).join('');
 
-    // ── Atividades semanais (só tarefas com registros, ordenadas por EAP) ──
+    // ── Atividades semanais agrupadas por Ponto Macro (eap_level === 1) ──
     const tasksWithUpdates = tasks.filter(t => (t._updates||[]).length > 0);
+
+    // Monta agrupamento: para cada atividade semanal, encontra o macro-pai
+    function getMacroParent(task, allTasks) {
+      if (task.eap_level === 1) return task;
+      // eap_code micro ex: "1.1", "2.3" → macro é o primeiro segmento
+      if (task.eap_code) {
+        const macroCode = String(task.eap_code).split('.')[0];
+        const macro = allTasks.find(t => t.eap_level === 1 && String(t.eap_code) === macroCode);
+        if (macro) return macro;
+      }
+      return null;
+    }
+
+    // Agrupa tarefas com updates pelo macro pai
+    const macroGroups = [];
+    const seenMacroIds = new Set();
+    // Primeiro, descobrir todos os macros referenciados
+    tasksWithUpdates.forEach(t => {
+      const macro = getMacroParent(t, tasks);
+      const macroId = macro ? macro.id : '__sem_macro__';
+      if (!seenMacroIds.has(macroId)) {
+        seenMacroIds.add(macroId);
+        macroGroups.push({ macro, tasks: [] });
+      }
+      macroGroups.find(g => (g.macro ? g.macro.id : '__sem_macro__') === macroId).tasks.push(t);
+    });
+
     const actividadesHTML = tasksWithUpdates.length ? `
     <div class="sec">
       <div class="sec-title">📅 Atividades Semanais por Ação</div>
-      ${tasksWithUpdates.map(t => `
-      <div class="task-block">
-        <div class="task-block-hd">${t.eap_code ? '[' + t.eap_code + '] ' : ''}${t.name}</div>
-        <div class="task-block-body">
-          ${t._updates.map(u => `
-          <div class="upd-card">
-            <div class="upd-hd">
-              <span class="upd-week">📅 Semana de ${fmtD(u.week_ref)}</span>
-              ${u.progress != null ? '<span class="upd-pct">' + parseFloat(u.progress).toFixed(0) + '% concluído</span>' : ''}
+      ${macroGroups.map(group => `
+      <div style="margin-bottom:24px">
+        ${group.macro ? `
+        <div style="background:linear-gradient(135deg,#1B5E20,#388E3C);border-radius:10px 10px 0 0;padding:10px 16px;margin-bottom:0">
+          <div style="font-size:11px;font-weight:800;color:#fff;letter-spacing:.5px">
+            📌 Ponto Macro ${group.macro.eap_code || ''} — ${group.macro.name}
+          </div>
+          ${group.macro.description ? `<div style="font-size:10px;color:rgba(255,255,255,.75);margin-top:4px;font-style:italic">${group.macro.description}</div>` : ''}
+        </div>` : `
+        <div style="background:#546E7A;border-radius:10px 10px 0 0;padding:10px 16px;margin-bottom:0">
+          <div style="font-size:11px;font-weight:800;color:#fff">📌 Ações sem vínculo de ponto macro</div>
+        </div>`}
+        <div style="border:1px solid #C8E6C9;border-top:none;border-radius:0 0 10px 10px;padding:12px;display:flex;flex-direction:column;gap:12px">
+          ${group.tasks.map(t => `
+          <div class="task-block" style="margin-bottom:0">
+            <div class="task-block-hd" style="background:linear-gradient(135deg,#2E7D32,#43A047)">
+              ${t.eap_code ? '[' + t.eap_code + '] ' : ''}${t.name}
+              ${t.description ? '<div style="font-size:10px;font-weight:400;color:rgba(255,255,255,.8);margin-top:3px;font-style:italic">' + t.description + '</div>' : ''}
             </div>
-            <div class="upd-body">
-              <div class="upd-exec"><div class="upd-lbl">✅ Executado</div>${u.executed}</div>
-              ${u.blockers ? '<div class="upd-block"><div class="upd-lbl">🚧 Bloqueio</div>' + u.blockers + '</div>' : ''}
-              ${u.next_steps ? '<div class="upd-next"><div class="upd-lbl">🎯 Próximas atividades</div>' + u.next_steps + '</div>' : ''}
-              <div class="upd-by">👤 ${u.user_name || '—'}</div>
+            <div class="task-block-body">
+              ${t._updates.map(u => `
+              <div class="upd-card">
+                <div class="upd-hd">
+                  <span class="upd-week">📅 Semana de ${fmtD(u.week_ref)}</span>
+                  ${u.progress != null ? '<span class="upd-pct">' + parseFloat(u.progress).toFixed(0) + '% concluído</span>' : ''}
+                </div>
+                <div class="upd-body">
+                  <div class="upd-exec"><div class="upd-lbl">✅ Executado</div>${u.executed}</div>
+                  ${u.blockers ? '<div class="upd-block"><div class="upd-lbl">🚧 Bloqueio</div>' + u.blockers + '</div>' : ''}
+                  ${u.next_steps ? '<div class="upd-next"><div class="upd-lbl">🎯 Próximas atividades</div>' + u.next_steps + '</div>' : ''}
+                  <div class="upd-by">👤 ${u.user_name || '—'}</div>
+                </div>
+              </div>`).join('')}
             </div>
           </div>`).join('')}
         </div>
@@ -1358,7 +1410,10 @@ async function exportReport(projectId) {
 ═══════════════════════════════════════════════════════════ */
 async function exportByArea() {
   try {
-    const areas = await GET('/dashboard/by-area');
+    const [areas, allProjects] = await Promise.all([
+      GET('/dashboard/by-area'),
+      GET('/projects')
+    ]);
     const user  = Auth.user || {};
     const win   = window.open('', '_blank', 'width=1200,height=800');
     const fmtR  = v => 'R$ ' + parseFloat(v||0).toLocaleString('pt-BR', { minimumFractionDigits: 0 });
@@ -1443,6 +1498,98 @@ async function exportByArea() {
       <td style="text-align:center;font-weight:${a.active_risks>0?700:400};color:${a.active_risks>0?'#C62828':'inherit'}">${a.active_risks}</td>
     </tr>`).join('');
 
+    // ── Helpers de data ──
+    const fmtDBA = v => {
+      if (!v) return '—';
+      const s = String(v).replace(' ','T').split('T')[0];
+      if (/^\d{4}-\d{2}-\d{2}$/.test(s)) { const [y,m,d]=s.split('-'); return d+'/'+m+'/'+y; }
+      return s;
+    };
+    const parseDate = v => {
+      if (!v) return null;
+      const s = String(v).replace(' ','T').split('T')[0];
+      if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return new Date(s + 'T00:00:00');
+      if (/^\d{2}\/\d{2}\/\d{4}$/.test(s)) { const [d,m,y]=s.split('/'); return new Date(`${y}-${m}-${d}T00:00:00`); }
+      return null;
+    };
+    const SC_BA = {
+      'Em andamento':'#1565C0','Concluído':'#2E7D32','Atrasado':'#C62828',
+      'Planejado':'#546E7A','Em espera':'#6A1B9A','Cancelado':'#37474F'
+    };
+    const badgeBA = s => `<span style="display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700;color:#fff;background:${SC_BA[s]||'#9E9E9E'}">${s}</span>`;
+    const pColorBA = v => { const n=parseFloat(v||0); return n>=80?'#2E7D32':n>=40?'#E65100':'#C62828'; };
+
+    const projCard = p => `
+      <div style="border:1px solid #C8E6C9;border-radius:10px;padding:14px;background:#F8FFF8;margin-bottom:10px">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
+          <div>
+            <div style="font-size:13px;font-weight:700;color:#1B5E20">${p.name}</div>
+            <div style="font-size:10px;color:#757575;margin-top:2px">${p.code} · ${p.area||'—'} · Gestor: ${typeof p.manager_name==='object'?p.manager_name?.name||'—':p.manager_name||'—'}</div>
+            ${p.description ? `<div style="font-size:11px;color:#555;font-style:italic;margin-top:4px;border-left:2px solid #2E7D32;padding-left:8px">${p.description}</div>` : ''}
+          </div>
+          <div style="text-align:right;flex-shrink:0">
+            ${badgeBA(p.status)}
+            <div style="font-size:11px;font-weight:700;color:${pColorBA(p.progress)};margin-top:4px">${parseFloat(p.progress||0).toFixed(0)}%</div>
+          </div>
+        </div>
+        <div style="margin-top:8px;display:flex;gap:16px;font-size:10px;color:#666">
+          <span>📅 Início: ${fmtDBA(p.start_date)}</span>
+          <span>🏁 Término: ${fmtDBA(p.end_date)}</span>
+          <span>💰 ${fmtR(p.budget)}</span>
+        </div>
+      </div>`;
+
+    // ── PROJETOS ANUAIS (end_date >= 01/04/2027) ──
+    const ANUAL_CUTOFF = new Date('2027-04-01T00:00:00');
+    const projetosAnuais = (allProjects||[]).filter(p => {
+      const ed = parseDate(p.end_date);
+      return ed && ed >= ANUAL_CUTOFF;
+    });
+    const anuaisHTML = projetosAnuais.length ? `
+    <div style="margin-bottom:36px">
+      <div style="font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#2E7D32;margin-bottom:14px;padding-bottom:8px;border-bottom:2px solid #E8F5E9">
+        📆 Projetos Anuais — término a partir de 01/04/2027 (${projetosAnuais.length} projeto(s))
+      </div>
+      ${projetosAnuais.map(projCard).join('')}
+    </div>` : '';
+
+    // ── SEPARAÇÃO TRIMESTRAL ──
+    const trimestres = [
+      { label: '1º Trimestre', months: [1,2,3] },
+      { label: '2º Trimestre', months: [4,5,6] },
+      { label: '3º Trimestre', months: [7,8,9] },
+      { label: '4º Trimestre', months: [10,11,12] },
+    ];
+    // Usa o ano com mais projetos, ou ano corrente
+    const years = (allProjects||[]).map(p => { const d=parseDate(p.end_date); return d?d.getFullYear():null; }).filter(Boolean);
+    const yearCount = {};
+    years.forEach(y => yearCount[y]=(yearCount[y]||0)+1);
+    const refYear = Object.keys(yearCount).sort((a,b)=>yearCount[b]-yearCount[a])[0] || new Date().getFullYear();
+
+    const trimestralHTML = trimestres.map(tri => {
+      const projsTri = (allProjects||[]).filter(p => {
+        const ed = parseDate(p.end_date);
+        return ed && ed.getFullYear() === parseInt(refYear) && tri.months.includes(ed.getMonth()+1);
+      });
+      return `
+      <div style="margin-bottom:24px">
+        <div style="background:linear-gradient(135deg,#1B5E20,#388E3C);border-radius:10px 10px 0 0;padding:10px 16px">
+          <div style="font-size:12px;font-weight:700;color:#fff">📅 ${tri.label} ${refYear} — ${projsTri.length} projeto(s)</div>
+        </div>
+        <div style="border:1px solid #C8E6C9;border-top:none;border-radius:0 0 10px 10px;padding:12px">
+          ${projsTri.length ? projsTri.map(projCard).join('') : '<div style="font-size:12px;color:#9E9E9E;padding:8px">Nenhum projeto com término neste trimestre.</div>'}
+        </div>
+      </div>`;
+    }).join('');
+
+    const separacaoHTML = `
+    <div style="margin-bottom:36px">
+      <div style="font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#2E7D32;margin-bottom:14px;padding-bottom:8px;border-bottom:2px solid #E8F5E9">
+        📊 Separação Trimestral — ${refYear}
+      </div>
+      ${trimestralHTML}
+    </div>`;
+
     const html = `<!DOCTYPE html>
 <html lang="pt-BR"><head>
 <meta charset="UTF-8">
@@ -1508,6 +1655,9 @@ async function exportByArea() {
       </tr>
     </tbody>
   </table>
+
+  ${anuaisHTML}
+  ${separacaoHTML}
 
   <div class="footer">
     <div>PMO Suite v5.0 · Gerado em ${nowStr} · Por: ${user.name||'—'}</div>
