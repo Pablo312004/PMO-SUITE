@@ -1205,36 +1205,32 @@ async function exportReport(projectId) {
     // ── Atividades semanais agrupadas por Ponto Macro (eap_level === 1) ──
     const tasksWithUpdates = tasks.filter(t => (t._updates||[]).length > 0);
 
-    // Monta agrupamento: para cada atividade semanal, encontra o macro-pai
-    function getMacroParent(task, allTasks) {
-      if (task.eap_level === 1) return task;
-      // eap_code micro ex: "1.1", "2.3" → macro é o primeiro segmento
-      if (task.eap_code) {
-        const macroCode = String(task.eap_code).split('.')[0];
-        const macro = allTasks.find(t => t.eap_level === 1 && String(t.eap_code) === macroCode);
-        if (macro) return macro;
-      }
-      return null;
-    }
+    // ── Helper: renderiza cards de update de uma lista de tasks ──
+    function renderUpdateCards(taskList) {
+      // Agrupa por macro pai
+      const withUpd = taskList.filter(t => (t._updates||[]).length > 0);
+      if (!withUpd.length) return '';
 
-    // Agrupa tarefas com updates pelo macro pai
-    const macroGroups = [];
-    const seenMacroIds = new Set();
-    // Primeiro, descobrir todos os macros referenciados
-    tasksWithUpdates.forEach(t => {
-      const macro = getMacroParent(t, tasks);
-      const macroId = macro ? macro.id : '__sem_macro__';
-      if (!seenMacroIds.has(macroId)) {
-        seenMacroIds.add(macroId);
-        macroGroups.push({ macro, tasks: [] });
+      function getMacroLocal(task) {
+        if (task.eap_level === 1) return task;
+        if (task.eap_code) {
+          const mc = String(task.eap_code).split('.')[0];
+          const m = tasks.find(x => x.eap_level === 1 && String(x.eap_code) === mc);
+          if (m) return m;
+        }
+        return null;
       }
-      macroGroups.find(g => (g.macro ? g.macro.id : '__sem_macro__') === macroId).tasks.push(t);
-    });
 
-    const actividadesHTML = tasksWithUpdates.length ? `
-    <div class="sec">
-      <div class="sec-title">📅 Atividades Semanais por Ação</div>
-      ${macroGroups.map(group => `
+      const groups = [];
+      const seen = new Set();
+      withUpd.forEach(t => {
+        const macro = getMacroLocal(t);
+        const id = macro ? macro.id : '__sem_macro__';
+        if (!seen.has(id)) { seen.add(id); groups.push({ macro, tasks: [] }); }
+        groups.find(g => (g.macro ? g.macro.id : '__sem_macro__') === id).tasks.push(t);
+      });
+
+      return groups.map(group => `
       <div style="margin-bottom:24px">
         ${group.macro ? `
         <div style="background:linear-gradient(135deg,#1B5E20,#388E3C);border-radius:10px 10px 0 0;padding:10px 16px;margin-bottom:0">
@@ -1254,7 +1250,7 @@ async function exportReport(projectId) {
               ${t.description ? '<div style="font-size:10px;font-weight:400;color:rgba(255,255,255,.8);margin-top:3px;font-style:italic">' + t.description + '</div>' : ''}
             </div>
             <div class="task-block-body">
-              ${t._updates.map(u => `
+              ${(t._updates||[]).map(u => `
               <div class="upd-card">
                 <div class="upd-hd">
                   <span class="upd-week">📅 Semana de ${fmtD(u.week_ref)}</span>
@@ -1270,7 +1266,14 @@ async function exportReport(projectId) {
             </div>
           </div>`).join('')}
         </div>
-      </div>`).join('')}
+      </div>`).join('');
+    }
+
+    // ── Seção 3: Atividades Semanais — TODAS as tasks do projeto ──
+    const actividadesHTML = tasksWithUpdates.length ? `
+    <div class="sec">
+      <div class="sec-title">📅 Atividades Semanais — Todas as Ações</div>
+      ${renderUpdateCards(tasks)}
     </div>` : '';
 
     // ── Riscos ──
@@ -1299,6 +1302,89 @@ async function exportReport(projectId) {
           </tr>`;
         }).join('')}</tbody>
       </table>
+    </div>` : '';
+
+    // ── Seção 2: Separação Trimestral — somente EAP, zero atividades semanais ──
+    const projYear = (() => {
+      const ys = tasks.map(t => { const d = parseDateR(t.end_date); return d ? d.getFullYear() : null; }).filter(Boolean);
+      const yc = {}; ys.forEach(y => yc[y]=(yc[y]||0)+1);
+      return parseInt(Object.keys(yc).sort((a,b)=>yc[b]-yc[a])[0] || new Date().getFullYear());
+    })();
+
+    function buildEapRows(triTasks) {
+      return triTasks.map(t => {
+        const isObj = t.eap_level === 1;
+        const indent = (t.eap_level - 1) * 18;
+        const prog = parseFloat(t.progress || 0).toFixed(0);
+        const descRow = t.description ? `
+          <tr class="${isObj ? 'obj' : 'act'}">
+            <td></td>
+            <td colspan="6" style="padding-left:${indent + 14}px;padding-top:0;padding-bottom:8px">
+              <div style="font-size:10px;color:#666;font-style:italic;border-left:2px solid ${isObj?'#2E7D32':'#A5D6A7'};padding-left:8px;margin-top:2px">${t.description}</div>
+            </td>
+          </tr>` : '';
+        return `<tr class="${isObj ? 'obj' : 'act'}">
+          <td style="font-weight:${isObj?700:500};color:${isObj?'#1B5E20':'#2E7D32'};white-space:nowrap;font-size:11px">${t.eap_code || '—'}</td>
+          <td style="padding-left:${indent + 14}px;font-weight:${isObj?700:400}">
+            ${isObj ? '<strong>' + t.name + '</strong>' : t.name}
+          </td>
+          <td style="color:#555;white-space:nowrap">${t.assignee_name || '—'}</td>
+          <td><span class="badge" style="background:${SC[t.status]||'#9E9E9E'}">${t.status}</span></td>
+          <td style="color:#666;white-space:nowrap;font-size:11px">${fmtD(t.start_date)}</td>
+          <td style="color:#666;white-space:nowrap;font-size:11px">${fmtD(t.end_date)}</td>
+          <td>
+            <div class="pbar-wrap">
+              <div class="pbar-bg"><div class="pbar-fill" style="width:${prog}%;background:${pColor(t.progress)}"></div></div>
+              <span style="font-weight:700;font-size:11px;color:${pColor(t.progress)}">${prog}%</span>
+            </div>
+          </td>
+        </tr>${descRow}`;
+      }).join('');
+    }
+
+    function buildTriBlock(label, triTasks) {
+      return `
+      <div style="margin-bottom:32px">
+        <div style="background:linear-gradient(135deg,#1B5E20,#2E7D32);border-radius:12px 12px 0 0;padding:12px 18px">
+          <div style="font-size:13px;font-weight:800;color:#fff;letter-spacing:.3px">
+            📅 ${label}
+            <span style="font-size:10px;font-weight:500;color:rgba(255,255,255,.7);margin-left:10px">${triTasks.length} ação(ões)</span>
+          </div>
+        </div>
+        <div style="border:1px solid #C8E6C9;border-top:none;border-radius:0 0 12px 12px;padding:16px">
+          <table class="eap-table" style="margin-bottom:0">
+            <thead><tr>
+              <th style="width:72px">Cód. EAP</th>
+              <th>Ação / Entregável</th>
+              <th style="width:130px">Responsável</th>
+              <th style="width:110px">Status</th>
+              <th style="width:88px">Início</th>
+              <th style="width:88px">Término</th>
+              <th style="width:72px">%</th>
+            </tr></thead>
+            <tbody>${buildEapRows(triTasks)}</tbody>
+          </table>
+        </div>
+      </div>`;
+    }
+
+    const triBlocks = trimestresR.map(tri => {
+      const triTasks = tasks.filter(t => {
+        const ed = parseDateR(t.end_date);
+        return ed && ed.getFullYear() === projYear && tri.months.includes(ed.getMonth()+1);
+      });
+      return triTasks.length ? buildTriBlock(`${tri.label} ${projYear}`, triTasks) : '';
+    }).join('');
+
+    // Tasks sem data de término definida
+    const semDataTasks = tasks.filter(t => !parseDateR(t.end_date));
+    const semDataBlock = semDataTasks.length ? buildTriBlock('Sem trimestre definido', semDataTasks) : '';
+
+    const trimestralHTML = (triBlocks || semDataBlock) ? `
+    <div class="sec">
+      <div class="sec-title">📆 Separação Trimestral — ${projYear}</div>
+      ${triBlocks}
+      ${semDataBlock}
     </div>` : '';
 
     const html = `<!DOCTYPE html>
@@ -1392,154 +1478,7 @@ async function exportReport(projectId) {
     </table>
   </div>
 
-  ${(() => {
-    // ── Separação Trimestral — EAP + Atividades Semanais por trimestre ──
-    const projYear = (() => {
-      const ys = tasks.map(t => { const d = parseDateR(t.end_date); return d ? d.getFullYear() : null; }).filter(Boolean);
-      const yc = {}; ys.forEach(y => yc[y]=(yc[y]||0)+1);
-      return parseInt(Object.keys(yc).sort((a,b)=>yc[b]-yc[a])[0] || new Date().getFullYear());
-    })();
-
-    // Monta EAP rows igual à principal, mas só para as tasks do trimestre
-    function buildEapRows(triTasks) {
-      return triTasks.map(t => {
-        const isObj = t.eap_level === 1;
-        const indent = (t.eap_level - 1) * 18;
-        const prog = parseFloat(t.progress || 0).toFixed(0);
-        const descRow = t.description ? `
-          <tr class="${isObj ? 'obj' : 'act'}">
-            <td></td>
-            <td colspan="6" style="padding-left:${indent + 14}px;padding-top:0;padding-bottom:8px">
-              <div style="font-size:10px;color:#666;font-style:italic;border-left:2px solid ${isObj?'#2E7D32':'#A5D6A7'};padding-left:8px;margin-top:2px">${t.description}</div>
-            </td>
-          </tr>` : '';
-        return `<tr class="${isObj ? 'obj' : 'act'}">
-          <td style="font-weight:${isObj?700:500};color:${isObj?'#1B5E20':'#2E7D32'};white-space:nowrap;font-size:11px">${t.eap_code || '—'}</td>
-          <td style="padding-left:${indent + 14}px;font-weight:${isObj?700:400}">
-            ${isObj ? '<strong>' + t.name + '</strong>' : t.name}
-          </td>
-          <td style="color:#555;white-space:nowrap">${t.assignee_name || '—'}</td>
-          <td><span class="badge" style="background:${SC[t.status]||'#9E9E9E'}">${t.status}</span></td>
-          <td style="color:#666;white-space:nowrap;font-size:11px">${fmtD(t.start_date)}</td>
-          <td style="color:#666;white-space:nowrap;font-size:11px">${fmtD(t.end_date)}</td>
-          <td>
-            <div class="pbar-wrap">
-              <div class="pbar-bg"><div class="pbar-fill" style="width:${prog}%;background:${pColor(t.progress)}"></div></div>
-              <span style="font-weight:700;font-size:11px;color:${pColor(t.progress)}">${prog}%</span>
-            </div>
-          </td>
-        </tr>${descRow}`;
-      }).join('');
-    }
-
-    // Monta atividades semanais igual à principal, mas só para as tasks do trimestre
-    function buildAtividades(triTasks) {
-      const withUpdates = triTasks.filter(t => (t._updates||[]).length > 0);
-      if (!withUpdates.length) return '';
-
-      function getMacroParent(task) {
-        if (task.eap_level === 1) return task;
-        if (task.eap_code) {
-          const macroCode = String(task.eap_code).split('.')[0];
-          const macro = tasks.find(t => t.eap_level === 1 && String(t.eap_code) === macroCode);
-          if (macro) return macro;
-        }
-        return null;
-      }
-
-      const macroGroups = [];
-      const seenMacroIds = new Set();
-      withUpdates.forEach(t => {
-        const macro = getMacroParent(t);
-        const macroId = macro ? macro.id : '__sem_macro__';
-        if (!seenMacroIds.has(macroId)) {
-          seenMacroIds.add(macroId);
-          macroGroups.push({ macro, tasks: [] });
-        }
-        macroGroups.find(g => (g.macro ? g.macro.id : '__sem_macro__') === macroId).tasks.push(t);
-      });
-
-      return `
-        <div class="sec" style="margin-top:16px">
-          <div class="sec-title">📅 Atividades Semanais por Ação</div>
-          ${macroGroups.map(group => `
-          <div style="margin-bottom:24px">
-            ${group.macro ? `
-            <div style="background:linear-gradient(135deg,#1B5E20,#388E3C);border-radius:10px 10px 0 0;padding:10px 16px">
-              <div style="font-size:11px;font-weight:800;color:#fff">📌 Ponto Macro ${group.macro.eap_code || ''} — ${group.macro.name}</div>
-              ${group.macro.description ? '<div style="font-size:10px;color:rgba(255,255,255,.75);margin-top:4px;font-style:italic">' + group.macro.description + '</div>' : ''}
-            </div>` : `
-            <div style="background:#546E7A;border-radius:10px 10px 0 0;padding:10px 16px">
-              <div style="font-size:11px;font-weight:800;color:#fff">📌 Ações sem vínculo de ponto macro</div>
-            </div>`}
-            <div style="border:1px solid #C8E6C9;border-top:none;border-radius:0 0 10px 10px;padding:12px;display:flex;flex-direction:column;gap:12px">
-              ${group.tasks.map(t => `
-              <div class="task-block" style="margin-bottom:0">
-                <div class="task-block-hd" style="background:linear-gradient(135deg,#2E7D32,#43A047)">
-                  ${t.eap_code ? '[' + t.eap_code + '] ' : ''}${t.name}
-                  ${t.description ? '<div style="font-size:10px;font-weight:400;color:rgba(255,255,255,.8);margin-top:3px;font-style:italic">' + t.description + '</div>' : ''}
-                </div>
-                <div class="task-block-body">
-                  ${(t._updates||[]).map(u => `
-                  <div class="upd-card">
-                    <div class="upd-hd">
-                      <span class="upd-week">📅 Semana de ${fmtD(u.week_ref)}</span>
-                      ${u.progress != null ? '<span class="upd-pct">' + parseFloat(u.progress).toFixed(0) + '% concluído</span>' : ''}
-                    </div>
-                    <div class="upd-body">
-                      <div class="upd-exec"><div class="upd-lbl">✅ Executado</div>${u.executed}</div>
-                      ${u.blockers ? '<div class="upd-block"><div class="upd-lbl">🚧 Bloqueio</div>' + u.blockers + '</div>' : ''}
-                      ${u.next_steps ? '<div class="upd-next"><div class="upd-lbl">🎯 Próximas atividades</div>' + u.next_steps + '</div>' : ''}
-                      <div class="upd-by">👤 ${u.user_name || '—'}</div>
-                    </div>
-                  </div>`).join('')}
-                </div>
-              </div>`).join('')}
-            </div>
-          </div>`).join('')}
-        </div>`;
-    }
-
-    const triBlocks = trimestresR.map(tri => {
-      const triTasks = tasks.filter(t => {
-        const ed = parseDateR(t.end_date);
-        return ed && ed.getFullYear() === projYear && tri.months.includes(ed.getMonth()+1);
-      });
-      if (!triTasks.length) return '';
-
-      return `
-      <div style="margin-bottom:32px;page-break-inside:avoid">
-        <div style="background:linear-gradient(135deg,#1B5E20,#2E7D32);border-radius:12px 12px 0 0;padding:12px 18px;margin-bottom:0">
-          <div style="font-size:13px;font-weight:800;color:#fff;letter-spacing:.3px">
-            📅 ${tri.label} ${projYear}
-            <span style="font-size:10px;font-weight:500;color:rgba(255,255,255,.7);margin-left:10px">${triTasks.length} ação(ões)</span>
-          </div>
-        </div>
-        <div style="border:1px solid #C8E6C9;border-top:none;border-radius:0 0 12px 12px;padding:16px">
-          <!-- EAP do trimestre -->
-          <table class="eap-table" style="margin-bottom:0">
-            <thead><tr>
-              <th style="width:72px">Cód. EAP</th>
-              <th>Ação / Entregável</th>
-              <th style="width:130px">Responsável</th>
-              <th style="width:110px">Status</th>
-              <th style="width:88px">Início</th>
-              <th style="width:88px">Término</th>
-              <th style="width:72px">%</th>
-            </tr></thead>
-            <tbody>${buildEapRows(triTasks)}</tbody>
-          </table>
-        </div>
-      </div>`;
-    }).join('');
-
-    if (!triBlocks) return '';
-    return `
-    <div class="sec">
-      <div class="sec-title">📆 Separação Trimestral — ${projYear}</div>
-      ${triBlocks}
-    </div>`;
-  })()}
+  ${trimestralHTML}
 
   ${actividadesHTML}
 
