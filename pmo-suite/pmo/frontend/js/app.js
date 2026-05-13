@@ -1517,7 +1517,6 @@ async function exportReport(projectId) {
         </div>
         <div style="border:1px solid #C8E6C9;border-top:none;border-radius:0 0 12px 12px;padding:16px">
           <!-- EAP do trimestre -->
-          <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#2E7D32;margin-bottom:10px">📋 Estrutura EAP</div>
           <table class="eap-table" style="margin-bottom:0">
             <thead><tr>
               <th style="width:72px">Cód. EAP</th>
@@ -1530,8 +1529,6 @@ async function exportReport(projectId) {
             </tr></thead>
             <tbody>${buildEapRows(triTasks)}</tbody>
           </table>
-          <!-- Atividades Semanais do trimestre -->
-          ${buildAtividades(triTasks)}
         </div>
       </div>`;
     }).join('');
@@ -1543,6 +1540,8 @@ async function exportReport(projectId) {
       ${triBlocks}
     </div>`;
   })()}
+
+  ${actividadesHTML}
 
   ${riscosHTML}
 
