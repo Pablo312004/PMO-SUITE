@@ -1028,6 +1028,23 @@ async function exportReport(projectId) {
     const now    = new Date();
     const nowStr = now.toLocaleDateString('pt-BR', { day:'2-digit', month:'long', year:'numeric' });
 
+    // ── Helpers de data / classificação do projeto ──
+    const parseDateR = v => {
+      if (!v) return null;
+      const s = String(v).replace(' ','T').split('T')[0];
+      if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return new Date(s + 'T00:00:00');
+      if (/^\d{2}\/\d{2}\/\d{4}$/.test(s)) { const [d,m,y]=s.split('/'); return new Date(`${y}-${m}-${d}T00:00:00`); }
+      return null;
+    };
+    const ANUAL_CUTOFF_R = new Date('2027-04-01T00:00:00');
+    const isAnual = (() => { const ed = parseDateR(p.end_date); return ed && ed >= ANUAL_CUTOFF_R; })();
+    const trimestresR = [
+      { label: '1º Trimestre', months: [1,2,3] },
+      { label: '2º Trimestre', months: [4,5,6] },
+      { label: '3º Trimestre', months: [7,8,9] },
+      { label: '4º Trimestre', months: [10,11,12] },
+    ];
+
     const SC = {
       'Em andamento': '#1565C0', 'Concluído': '#2E7D32',
       'Atrasado': '#C62828',     'Planejado': '#546E7A',
@@ -1360,7 +1377,7 @@ async function exportReport(projectId) {
 
   <!-- EAP ORDENADA -->
   <div class="sec">
-    <div class="sec-title">📋 Estrutura EAP — ${tasks.length} item(s)</div>
+    <div class="sec-title">${isAnual ? '⭐ Projetos Anuais' : '📋 Estrutura EAP'} — ${tasks.length} item(s)</div>
     <table class="eap-table">
       <thead><tr>
         <th style="width:72px">Cód. EAP</th>
@@ -1374,6 +1391,54 @@ async function exportReport(projectId) {
       <tbody>${eapRows}</tbody>
     </table>
   </div>
+
+  ${(() => {
+    // Separação trimestral das tarefas dentro do projeto
+    const projYear = (() => {
+      const ed = parseDateR(p.end_date);
+      if (ed) return ed.getFullYear();
+      // fallback: ano mais frequente nas tarefas
+      const ys = tasks.map(t => { const d = parseDateR(t.end_date); return d ? d.getFullYear() : null; }).filter(Boolean);
+      const yc = {}; ys.forEach(y => yc[y]=(yc[y]||0)+1);
+      return Object.keys(yc).sort((a,b)=>yc[b]-yc[a])[0] || new Date().getFullYear();
+    })();
+
+    const triSecs = trimestresR.map(tri => {
+      const triTasks = tasks.filter(t => {
+        const ed = parseDateR(t.end_date);
+        return ed && ed.getFullYear() === parseInt(projYear) && tri.months.includes(ed.getMonth()+1);
+      });
+      if (!triTasks.length) return '';
+      return `
+        <div style="margin-bottom:16px">
+          <div style="background:linear-gradient(135deg,#1B5E20,#388E3C);border-radius:8px 8px 0 0;padding:8px 14px">
+            <span style="font-size:11px;font-weight:700;color:#fff">📅 ${tri.label} ${projYear} — ${triTasks.length} ação(ões)</span>
+          </div>
+          <div style="border:1px solid #C8E6C9;border-top:none;border-radius:0 0 8px 8px;overflow:hidden">
+            <table style="width:100%;border-collapse:collapse">
+              ${triTasks.map((t,i) => {
+                const prog = parseFloat(t.progress||0).toFixed(0);
+                const isObj = t.eap_level === 1;
+                return `<tr style="background:${i%2===0?'#F8FFF8':'#fff'};border-bottom:1px solid #F1F8E9">
+                  <td style="padding:7px 12px;width:60px;font-size:10px;font-weight:700;color:${isObj?'#1B5E20':'#2E7D32'}">${t.eap_code||'—'}</td>
+                  <td style="padding:7px 12px;font-size:11px;font-weight:${isObj?700:400}">${t.name}</td>
+                  <td style="padding:7px 12px;width:100px"><span style="display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:9px;font-weight:700;color:#fff;background:${SC[t.status]||'#9E9E9E'}">${t.status}</span></td>
+                  <td style="padding:7px 12px;width:76px;font-size:10px;color:#666">${fmtD(t.end_date)}</td>
+                  <td style="padding:7px 12px;width:56px;font-size:11px;font-weight:700;color:${pColor(t.progress)};text-align:right">${prog}%</td>
+                </tr>`;
+              }).join('')}
+            </table>
+          </div>
+        </div>`;
+    }).join('');
+
+    if (!triSecs) return '';
+    return `
+    <div class="sec">
+      <div class="sec-title">📅 Separação Trimestral ${projYear}</div>
+      ${triSecs}
+    </div>`;
+  })()}
 
   ${actividadesHTML}
   ${riscosHTML}
