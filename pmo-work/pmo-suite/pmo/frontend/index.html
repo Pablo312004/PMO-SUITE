@@ -418,24 +418,96 @@
 </div></div>
 
 <!-- Create/Edit Task -->
-<div class="modal-overlay" id="modal-task"><div class="modal">
-  <div class="modal-header"><div class="modal-title" id="task-modal-title">Nova Tarefa</div><button class="modal-close" onclick="closeModal('modal-task')">✕</button></div>
-  <form id="task-form" onsubmit="saveTask(event)">
-    <input type="hidden" id="task-form-id">
-    <div class="form-group"><label class="form-label">Projeto *</label><select id="task-proj-id" class="form-select" required></select></div>
-    <div class="form-group"><label class="form-label">Nome da Tarefa *</label><input id="task-name" class="form-input" required placeholder="Descreva a tarefa"></div>
-    <div class="form-group"><label class="form-label">Descrição</label><textarea id="task-description" class="form-textarea"></textarea></div>
-    <div class="form-grid">
-      <div class="form-group"><label class="form-label">Data Início</label><input id="task-start-date" class="form-input" type="date"></div>
-      <div class="form-group"><label class="form-label">Data Fim</label><input id="task-end-date" class="form-input" type="date"></div>
-      <div class="form-group"><label class="form-label">Progresso (%)</label><input id="task-progress" class="form-input" type="number" min="0" max="100" value="0"></div>
-      <div class="form-group"><label class="form-label">Status</label><select id="task-status" class="form-select"><option>Planejado</option><option>Em andamento</option><option>Concluído</option><option>Atrasado</option><option>Em espera</option></select></div>
-      <div class="form-group"><label class="form-label">Código EAP</label><input id="task-eap-code" class="form-input" placeholder="1.1"></div>
-      <div class="form-group"><label class="form-label">Nível EAP</label><input id="task-eap-level" class="form-input" type="number" min="1" max="5" value="1"></div>
+<div class="modal-overlay" id="modal-task"><div class="modal modal-lg">
+  <div class="modal-header">
+    <div>
+      <div class="modal-title" id="task-modal-title">Nova Tarefa</div>
+      <div style="font-size:11px;color:var(--text3);margin-top:2px" id="task-autosave-status"></div>
     </div>
-    <div class="form-group"><label class="form-label">Responsável</label><select id="task-assignee" class="form-select"></select></div>
-    <div class="form-group" style="display:flex;align-items:center;gap:10px"><input id="task-milestone" type="checkbox" style="width:16px;height:16px;accent-color:var(--g700)"><label style="font-size:13px;color:var(--text2);cursor:pointer">Marco (Milestone)</label></div>
-    <div class="modal-footer"><button type="button" class="btn btn-secondary" onclick="closeModal('modal-task')">Cancelar</button><button type="submit" class="btn btn-primary">Salvar Tarefa</button></div>
+    <button class="modal-close" onclick="closeModal('modal-task')">✕</button>
+  </div>
+  <form id="task-form" onsubmit="saveTask(event)" style="padding:24px;display:flex;flex-direction:column;gap:16px">
+    <input type="hidden" id="task-form-id">
+
+    <div class="grid g2">
+      <div class="field" style="grid-column:1/-1">
+        <label class="label">Projeto *</label>
+        <select id="task-proj-id" class="input" required></select>
+      </div>
+      <div class="field" style="grid-column:1/-1">
+        <label class="label">Nome da Tarefa *</label>
+        <input id="task-name" class="input" required placeholder="Descreva a tarefa" oninput="taskAutoSave()">
+      </div>
+      <div class="field" style="grid-column:1/-1">
+        <label class="label">Descrição</label>
+        <textarea id="task-description" class="input" rows="3" oninput="taskAutoSave()"
+          onmouseup="event.stopPropagation()" onmousedown="event.stopPropagation()"
+          style="resize:vertical"></textarea>
+      </div>
+      <div class="field">
+        <label class="label">Data Início</label>
+        <input id="task-start-date" class="input" type="date" onchange="taskAutoSave()">
+      </div>
+      <div class="field">
+        <label class="label">Data Fim</label>
+        <input id="task-end-date" class="input" type="date" onchange="taskAutoSave()">
+      </div>
+    </div>
+
+    <!-- Barra de progresso interativa -->
+    <div class="field">
+      <label class="label">Progresso</label>
+      <div style="background:var(--subtle);border:1.5px solid var(--border);border-radius:10px;padding:14px 16px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <span style="font-size:11px;color:var(--text2)">0%</span>
+          <span id="task-progress-display" style="font-size:20px;font-weight:800;color:var(--g700)">0%</span>
+          <span style="font-size:11px;color:var(--text2)">100%</span>
+        </div>
+        <input type="range" id="task-progress" min="0" max="100" step="5" value="0"
+          oninput="onTaskProgressChange(this.value)"
+          onmouseup="event.stopPropagation()" onmousedown="event.stopPropagation()"
+          style="width:100%;height:6px;border-radius:3px;accent-color:var(--g600);cursor:pointer;display:block">
+      </div>
+    </div>
+
+    <div class="grid g2">
+      <div class="field">
+        <label class="label">Status</label>
+        <select id="task-status" class="input" onchange="taskAutoSave()">
+          <option>Planejado</option>
+          <option>Em andamento</option>
+          <option>Concluído</option>
+          <option>Atrasado</option>
+          <option>Em espera</option>
+        </select>
+      </div>
+      <div class="field">
+        <label class="label">Responsável</label>
+        <select id="task-assignee" class="input" onchange="taskAutoSave()"></select>
+      </div>
+      <div class="field">
+        <label class="label">Nível EAP</label>
+        <select id="task-eap-level" class="input" onchange="onEapLevelChange();taskAutoSave()">
+          <option value="1">Nível 1 — Objetivo Estratégico</option>
+          <option value="2">Nível 2 — Ação</option>
+          <option value="3">Nível 3 — Sub-ação</option>
+        </select>
+      </div>
+      <div class="field">
+        <label class="label">Código EAP</label>
+        <input id="task-eap-code" class="input" placeholder="Ex: 1.1" oninput="taskAutoSave()">
+      </div>
+    </div>
+
+    <div style="display:flex;align-items:center;gap:10px">
+      <input id="task-milestone" type="checkbox" style="width:16px;height:16px;accent-color:var(--g700)" onchange="taskAutoSave()">
+      <label style="font-size:13px;color:var(--text2);cursor:pointer">Marco (Milestone)</label>
+    </div>
+
+    <div class="modal-footer" style="padding:0;border:none;margin-top:4px">
+      <button type="button" class="btn btn-secondary" onclick="closeModal('modal-task')">Cancelar</button>
+      <button type="submit" class="btn btn-primary">💾 Salvar</button>
+    </div>
   </form>
 </div></div>
 

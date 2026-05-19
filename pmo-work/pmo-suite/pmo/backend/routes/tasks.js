@@ -169,6 +169,23 @@ module.exports = (db) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
   });
 
+  /* ── TASK UPDATES — editar ───────────────────────────────── */
+  router.put('/:id/updates/:updateId', authenticate, async (req, res) => {
+    try {
+      const { week_ref, progress, executed, blockers, next_steps } = req.body;
+      if (!executed || !executed.trim())
+        return res.status(400).json({ error: 'O campo "executado" é obrigatório' });
+      await db.run(
+        `UPDATE task_updates SET week_ref=$1, progress=$2, executed=$3, blockers=$4, next_steps=$5
+         WHERE id=$6 AND task_id=$7`,
+        [week_ref, progress != null ? parseFloat(progress) : null, executed.trim(),
+         blockers?.trim() || null, next_steps?.trim() || null,
+         req.params.updateId, req.params.id]
+      );
+      res.json({ message: 'Atividade atualizada' });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+
   /* ── TASK UPDATES — deletar ──────────────────────────────── */
   router.delete('/:id/updates/:updateId', authenticate, async (req, res) => {
     try {
