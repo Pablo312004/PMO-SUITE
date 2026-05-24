@@ -401,7 +401,19 @@
       <div class="form-group"><label class="form-label">Prioridade</label><select id="proj-priority" class="form-select"><option>Alta</option><option selected>Média</option><option>Baixa</option></select></div>
       <div class="form-group"><label class="form-label">Orçamento (R$)</label><input id="proj-budget" class="form-input" type="number" placeholder="0" step="1000"></div>
       <div class="form-group"><label class="form-label">Custo Realizado (R$)</label><input id="proj-actual-cost" class="form-input" type="number" placeholder="0"></div>
-      <div class="form-group"><label class="form-label">Progresso (%)</label><input id="proj-progress" class="form-input" type="number" min="0" max="100" placeholder="0"></div>
+      <div class="form-group" style="grid-column:1/-1">
+        <label class="form-label">Progresso do Projeto</label>
+        <div style="background:var(--subtle);border:1.5px solid var(--border);border-radius:10px;padding:14px 16px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+            <span style="font-size:11px;color:var(--text2)">0%</span>
+            <span id="proj-progress-display" style="font-size:20px;font-weight:800;color:var(--g700)">0%</span>
+            <span style="font-size:11px;color:var(--text2)">100%</span>
+          </div>
+          <input type="range" id="proj-progress" min="0" max="100" step="1" value="0"
+            oninput="document.getElementById('proj-progress-display').textContent=this.value+'%';this.style.background='linear-gradient(90deg,var(--g600) '+this.value+'%,var(--border) '+this.value+'%)'"
+            style="width:100%;height:6px;border-radius:3px;accent-color:var(--g600);cursor:pointer;display:block">
+        </div>
+      </div>
       <div class="form-group"><label class="form-label">Complexidade</label><select id="proj-complexity" class="form-select"><option>Alta</option><option selected>Média</option><option>Baixa</option></select></div>
       <div class="form-group"><label class="form-label">Impacto Estratégico</label><select id="proj-strategic-impact" class="form-select"><option>Estratégico</option><option>Alto</option><option selected>Médio</option><option>Baixo</option></select></div>
     </div>
@@ -418,20 +430,22 @@
 </div></div>
 
 <!-- Create/Edit Task -->
-<div class="modal-overlay" id="modal-task"><div class="modal modal-lg">
-  <div class="modal-header">
+<div class="modal-overlay" id="modal-task"><div class="modal modal-lg" style="max-width:720px;border-radius:16px;overflow:hidden">
+  <div style="background:linear-gradient(135deg,#1B5E20,#2E7D32);padding:22px 28px;display:flex;justify-content:space-between;align-items:flex-start">
     <div>
-      <div class="modal-title" id="task-modal-title">Nova Tarefa</div>
-      <div style="font-size:11px;color:var(--text3);margin-top:2px" id="task-autosave-status"></div>
+      <div style="font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#A5D6A7;margin-bottom:4px">Tarefa / Ação</div>
+      <div style="font-size:17px;font-weight:700;color:#fff" id="task-modal-title">Nova Tarefa</div>
+      <div style="font-size:11px;color:rgba(255,255,255,.6);margin-top:3px" id="task-autosave-status"></div>
     </div>
-    <button class="modal-close" onclick="closeModal('modal-task')">✕</button>
+    <button type="button" onclick="closeModal('modal-task')"
+      style="background:rgba(255,255,255,.15);border:none;color:#fff;width:32px;height:32px;border-radius:8px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center">✕</button>
   </div>
-  <form id="task-form" onsubmit="saveTask(event)" style="padding:24px;display:flex;flex-direction:column;gap:16px">
+  <form id="task-form" onsubmit="saveTask(event)" style="padding:24px;display:flex;flex-direction:column;gap:14px;max-height:70vh;overflow-y:auto">
     <input type="hidden" id="task-form-id">
 
     <div class="grid g2">
       <div class="field" style="grid-column:1/-1">
-        <label class="label">Projeto *</label>
+        <label style="display:block;font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text2);margin-bottom:6px">Projeto *</label>
         <select id="task-proj-id" class="input" required></select>
       </div>
       <div class="field" style="grid-column:1/-1">
@@ -499,14 +513,25 @@
       </div>
     </div>
 
+    <div class="grid g2">
+      <div class="field">
+        <label class="label">Custo Estimado (R$)</label>
+        <input id="task-budget" class="input" type="number" min="0" step="100" placeholder="0" oninput="taskAutoSave()">
+      </div>
+      <div class="field">
+        <label class="label">Custo Realizado (R$)</label>
+        <input id="task-actual-cost" class="input" type="number" min="0" step="100" placeholder="0" oninput="taskAutoSave()">
+      </div>
+    </div>
+
     <div style="display:flex;align-items:center;gap:10px">
       <input id="task-milestone" type="checkbox" style="width:16px;height:16px;accent-color:var(--g700)" onchange="taskAutoSave()">
       <label style="font-size:13px;color:var(--text2);cursor:pointer">Marco (Milestone)</label>
     </div>
 
-    <div class="modal-footer" style="padding:0;border:none;margin-top:4px">
+    <div style="display:flex;justify-content:flex-end;gap:10px;padding-top:8px;border-top:1px solid var(--border);margin-top:4px">
       <button type="button" class="btn btn-secondary" onclick="closeModal('modal-task')">Cancelar</button>
-      <button type="submit" class="btn btn-primary">💾 Salvar</button>
+      <button type="submit" class="btn btn-primary" style="background:linear-gradient(135deg,#1B5E20,#2E7D32);border:none">💾 Salvar Tarefa</button>
     </div>
   </form>
 </div></div>
@@ -699,50 +724,110 @@
 
 
 <!-- Modal: Update Semanal -->
-<div class="modal-overlay" id="modal-weekly"><div class="modal">
-  <div class="modal-header">
-    <div><div class="modal-title">📝 Update Semanal</div>
-    <div style="font-size:12px;color:var(--text2);margin-top:2px" id="weekly-project-name">Projeto</div></div>
-    <button class="modal-close" onclick="closeModal('modal-weekly')">✕</button>
-  </div>
-  <form id="weekly-form" onsubmit="saveWeeklyUpdate(event)" style="padding:24px;display:flex;flex-direction:column;gap:16px">
-    <input type="hidden" id="weekly-project-id">
-    <div class="grid g2">
-      <div class="field">
-        <label class="label">Progresso atual (%)</label>
-        <input type="number" id="weekly-progress" class="input" min="0" max="100" placeholder="Ex: 45">
-      </div>
-      <div class="field">
-        <label class="label">Status atual</label>
-        <select id="weekly-status" class="input">
-          <option value="">— Não alterar —</option>
-          <option>Em andamento</option><option>Atrasado</option><option>Planejado</option><option>Em espera</option><option>Concluído</option>
-        </select>
-      </div>
-    </div>
-    <div class="field">
-      <label class="label">Comentário geral <span style="color:var(--danger)">*</span></label>
-      <textarea id="weekly-comment" class="input" rows="3" required placeholder="Resuma o andamento desta semana…"></textarea>
-    </div>
-    <div class="field">
-      <label class="label">✅ Destaques / Conquistas</label>
-      <textarea id="weekly-highlights" class="input" rows="2" placeholder="O que avançou ou foi concluído?"></textarea>
-    </div>
-    <div class="field">
-      <label class="label">🚧 Bloqueios / Impedimentos</label>
-      <textarea id="weekly-blockers" class="input" rows="2" placeholder="Há algum impedimento que precisa de atenção?"></textarea>
-    </div>
-    <div class="field">
-      <label class="label">🎯 Próximos Passos</label>
-      <textarea id="weekly-next-steps" class="input" rows="2" placeholder="O que será feito na próxima semana?"></textarea>
-    </div>
-    <div class="modal-footer" style="padding:0;border:none">
-      <button type="button" class="btn btn-secondary" onclick="closeModal('modal-weekly')">Cancelar</button>
-      <button type="submit" class="btn btn-primary">💾 Salvar Update</button>
-    </div>
-  </form>
-</div></div>
+<div class="modal-overlay" id="modal-weekly">
+  <div class="modal modal-lg" style="max-width:860px;overflow:hidden;border-radius:16px">
 
+    <!-- Header -->
+    <div style="background:linear-gradient(135deg,#1B5E20,#2E7D32);padding:24px 28px;display:flex;justify-content:space-between;align-items:flex-start">
+      <div>
+        <div style="font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#A5D6A7;margin-bottom:4px">Update Semanal do Projeto</div>
+        <div style="font-size:18px;font-weight:700;color:#fff" id="weekly-project-name">Projeto</div>
+      </div>
+      <button onclick="closeModal('modal-weekly')"
+        style="background:rgba(255,255,255,.15);border:none;color:#fff;width:32px;height:32px;border-radius:8px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center">✕</button>
+    </div>
+
+    <!-- Tabs -->
+    <div style="display:flex;border-bottom:1px solid var(--border);background:var(--card)">
+      <button id="pw-tab-new" onclick="pwTab('new')"
+        style="flex:1;padding:14px;font-size:13px;font-weight:600;border:none;background:none;cursor:pointer;color:var(--g700);border-bottom:2px solid var(--g600)">
+        ➕ Novo Update
+      </button>
+      <button id="pw-tab-hist" onclick="pwTab('hist')"
+        style="flex:1;padding:14px;font-size:13px;font-weight:500;border:none;background:none;cursor:pointer;color:var(--text2);border-bottom:2px solid transparent">
+        🕒 Histórico
+      </button>
+    </div>
+
+    <!-- Pane: Novo update -->
+    <div id="pw-pane-new" style="padding:24px">
+      <form id="weekly-form" onsubmit="saveWeeklyUpdate(event)">
+        <input type="hidden" id="weekly-project-id">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+          <div>
+            <label style="display:block;font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text2);margin-bottom:8px">📅 Semana de Referência</label>
+            <input type="date" id="weekly-week" class="input" style="width:100%">
+          </div>
+          <div>
+            <label style="display:block;font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text2);margin-bottom:8px">📊 Progresso Atual</label>
+            <div style="background:var(--subtle);border:1.5px solid var(--border);border-radius:10px;padding:12px 14px">
+              <div style="display:flex;justify-content:space-between;margin-bottom:8px">
+                <span style="font-size:12px;color:var(--text2)">0%</span>
+                <span id="weekly-progress-display" style="font-size:16px;font-weight:800;color:var(--g700)">0%</span>
+                <span style="font-size:12px;color:var(--text2)">100%</span>
+              </div>
+              <input type="range" id="weekly-progress-range" min="0" max="100" step="5" value="0"
+                oninput="document.getElementById('weekly-progress-display').textContent=this.value+'%';document.getElementById('weekly-progress').value=this.value;this.style.background='linear-gradient(90deg,var(--g600) '+this.value+'%,var(--border) '+this.value+'%)'"
+                style="width:100%;height:6px;border-radius:3px;accent-color:var(--g600);cursor:pointer">
+              <input type="hidden" id="weekly-progress" value="0">
+            </div>
+          </div>
+          <div>
+            <label style="display:block;font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text2);margin-bottom:8px">Status Atual</label>
+            <select id="weekly-status" class="input" style="width:100%">
+              <option value="">— Não alterar —</option>
+              <option>Em andamento</option><option>Atrasado</option>
+              <option>Planejado</option><option>Em espera</option><option>Concluído</option>
+            </select>
+          </div>
+        </div>
+
+        <div style="margin-bottom:16px">
+          <label style="display:block;font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text2);margin-bottom:8px">
+            ✅ Comentário / Resumo da Semana <span style="color:var(--danger)">*</span>
+          </label>
+          <textarea id="weekly-comment" rows="3" required placeholder="Resuma o andamento desta semana…"
+            style="width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:10px;font-size:14px;background:var(--card);color:var(--text);resize:vertical;outline:none;font-family:inherit;transition:border .15s"
+            onfocus="this.style.borderColor='var(--g600)'" onblur="this.style.borderColor='var(--border)'"></textarea>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
+          <div>
+            <label style="display:block;font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text2);margin-bottom:8px">✨ Destaques / Conquistas</label>
+            <textarea id="weekly-highlights" rows="3" placeholder="O que avançou ou foi concluído?"
+              style="width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:10px;font-size:13px;background:var(--card);color:var(--text);resize:vertical;outline:none;font-family:inherit;transition:border .15s"
+              onfocus="this.style.borderColor='var(--g600)'" onblur="this.style.borderColor='var(--border)'"></textarea>
+          </div>
+          <div>
+            <label style="display:block;font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text2);margin-bottom:8px">🚧 Bloqueios / Impedimentos</label>
+            <textarea id="weekly-blockers" rows="3" placeholder="Há algum impedimento?"
+              style="width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:10px;font-size:13px;background:var(--card);color:var(--text);resize:vertical;outline:none;font-family:inherit;transition:border .15s"
+              onfocus="this.style.borderColor='#E65100'" onblur="this.style.borderColor='var(--border)'"></textarea>
+          </div>
+          <div style="grid-column:1/-1">
+            <label style="display:block;font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text2);margin-bottom:8px">🎯 Próximos Passos</label>
+            <textarea id="weekly-next-steps" rows="2" placeholder="O que será feito na próxima semana?"
+              style="width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:10px;font-size:13px;background:var(--card);color:var(--text);resize:vertical;outline:none;font-family:inherit;transition:border .15s"
+              onfocus="this.style.borderColor='var(--g600)'" onblur="this.style.borderColor='var(--border)'"></textarea>
+          </div>
+        </div>
+
+        <button type="submit"
+          style="width:100%;padding:14px;background:linear-gradient(135deg,#1B5E20,#2E7D32);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer">
+          💾 Salvar Update da Semana
+        </button>
+      </form>
+    </div>
+
+    <!-- Pane: Histórico -->
+    <div id="pw-pane-hist" style="display:none;padding:24px;max-height:480px;overflow-y:auto;background:var(--subtle)">
+      <div id="weekly-updates-list">
+        <div style="text-align:center;color:var(--text3);padding:40px 0">Nenhum update registrado ainda.</div>
+      </div>
+    </div>
+
+  </div>
+</div>
 
 <!-- Modal: Atividades Semanais da Tarefa -->
 <div class="modal-overlay" id="modal-task-updates">

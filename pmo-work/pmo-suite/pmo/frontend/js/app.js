@@ -181,10 +181,26 @@ async function loadDashboard() {
     const critical = d.overdue  || [];
     const expiring = d.expiring || [];
 
-    // Adapta estrutura para compatibilidade com a UI existente
-    const byPrio  = [];
-    const financial = [];
-    const evolution = [];
+    // Calcula byPrio a partir dos projetos retornados
+    const allProjects = await GET('/projects' + qs).catch(() => []);
+    const prioMap = {};
+    (allProjects || []).forEach(p => { prioMap[p.priority] = (prioMap[p.priority]||0)+1; });
+    const byPrio = Object.entries(prioMap).map(([priority, count]) => ({ priority, count }));
+
+    // Financial a partir dos projetos
+    const financial = (allProjects || []).slice(0,8).map(p => ({
+      code: p.code, budget: parseFloat(p.budget||0), actual_cost: parseFloat(p.actual_cost||0)
+    }));
+
+    // Evolution: progresso semanal dos últimos 8 projetos atualiz.
+    const evolution = (allProjects || [])
+      .filter(p => p.progress > 0)
+      .slice(0,8)
+      .map(p => ({
+        week: p.code,
+        avg_actual: parseFloat(p.progress||0),
+        avg_planned: Math.min(100, parseFloat(p.progress||0) + 10)
+      }));
 
     // KPIs — usa a nova estrutura flat do /dashboard
     set$('kpi-total',    summary.total_projects   || 0);
@@ -319,50 +335,135 @@ function filterProjects() {
 
 async function viewProject(id) {
   try {
-    const [p, kpis] = await Promise.all([GET('/projects/'+id), GET('/projects/'+id+'/kpis')]);
-    document.getElementById('view-title').textContent = `${p.code} — ${p.name}`;
-    document.getElementById('view-body').innerHTML = `
-      <div class="grid g3" style="margin-bottom:16px">
-        ${kpiMini('Progresso Real', p.progress+'%')} ${kpiMini('Planejado', kpis.plannedProgress+'%')} 
-        <div class="card" style="display:flex;align-items:center;justify-content:center;gap:10px">${healthBadge(kpis.healthScore)}<div><div style="font-size:13px;font-weight:600">Health Score</div><div style="font-size:11px;color:var(--text2)">${kpis.healthScore>=80?'Saudável':kpis.healthScore>=60?'Alerta':'Crítico'}</div></div></div>
-      </div>
-      <div class="grid g2" style="margin-bottom:16px">
-        <div class="card">
-          <div style="font-size:12px;font-weight:600;color:var(--text2);text-transform:uppercase;margin-bottom:8px">EVM</div>
-          <div class="metric-row"><div class="metric-name">SPI (Prazo)</div><div class="metric-val" style="color:${kpis.SPI>=1?'var(--success)':'var(--err)'}">${kpis.SPI}</div></div>
-          <div class="metric-row"><div class="metric-name">CPI (Custo)</div><div class="metric-val" style="color:${kpis.CPI>=1?'var(--success)':'var(--err)'}">${kpis.CPI}</div></div>
-          <div class="metric-row"><div class="metric-name">Orçado</div><div class="metric-val">${fmtCurrency(kpis.budget)}</div></div>
-          <div class="metric-row"><div class="metric-name">Realizado</div><div class="metric-val">${fmtCurrency(kpis.actualCost)}</div></div>
-          ${kpis.scheduleDeviation!=null?`<div class="metric-row"><div class="metric-name">Desvio cronograma</div><div class="metric-val" style="color:${kpis.scheduleDeviation<=0?'var(--success)':'var(--err)'}">${kpis.scheduleDeviation>0?'+':''}${kpis.scheduleDeviation} dias</div></div>`:''}
-        </div>
-        <div class="card">
-          <div style="font-size:12px;font-weight:600;color:var(--text2);text-transform:uppercase;margin-bottom:8px">Objetivo</div>
-          <div style="font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:12px">${p.objective||'—'}</div>
-          <div style="font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;margin-bottom:4px">Critérios de Sucesso</div>
-          <div style="font-size:12px;color:var(--text2)">${p.success_criteria||'—'}</div>
-        </div>
-      </div>
-      ${p.tasks?.length?`<div style="margin-bottom:16px"><div class="chart-title">Tarefas (${p.tasks.length})</div>
-      <div class="table-wrap"><table><thead><tr><th>Cód</th><th>Tarefa</th><th>Status</th><th>Progresso</th><th>Responsável</th><th>Prazo</th></tr></thead>
-      <tbody>${p.tasks.map(t=>`<tr><td style="font-size:11px;color:var(--text2)">${t.eap_code||''}</td><td class="td-main">${t.milestone?'🏁 ':''}${t.name}</td><td>${statusBadge(t.status)}</td><td>${progressEl(t.progress)}</td><td>${t.assignee_name||'—'}</td><td>${fmtDate(t.end_date)}</td></tr>`).join('')}</tbody></table></div></div>`:''}
-      ${p.risks?.length?`<div><div class="chart-title">Riscos (${p.risks.length})</div>
-      <div class="table-wrap"><table><thead><tr><th>Código</th><th>Descrição</th><th>Severidade</th><th>Status</th></tr></thead>
-      <tbody>${p.risks.map(r=>`<tr><td>${r.code||'—'}</td><td class="td-main">${r.description}</td><td>${riskBadge(r.severity)}</td><td>${statusBadge(r.status)}</td></tr>`).join('')}</tbody></table></div></div>`:''}`;
+    const [p, kpis] = await Promise.all([
+      GET('/projects/' + id),
+      GET('/projects/' + id + '/kpis').catch(() => ({}))
+    ]);
+
+    // Ordena EAP
+    function eapKey(code) {
+      if (!code) return [9999];
+      return String(code).split('.').map(n => parseInt(n,10)||0);
+    }
+    const tasks = [...(p.tasks||[])].sort((a,b) => {
+      const ka=eapKey(a.eap_code), kb=eapKey(b.eap_code);
+      for(let i=0;i<Math.max(ka.length,kb.length);i++){const d=(ka[i]||0)-(kb[i]||0);if(d!==0)return d;}
+      return 0;
+    });
+
+    const fmtR = v => 'R$ '+parseFloat(v||0).toLocaleString('pt-BR',{minimumFractionDigits:0});
+    const pC   = v => parseFloat(v||0)>=80?'var(--g700)':parseFloat(v||0)>=40?'#E65100':'#C62828';
+
+    document.getElementById('view-title').textContent = p.code + ' — ' + p.name;
+    document.getElementById('view-body').innerHTML =
+
+      // ── Header info ──
+      '<div style="background:linear-gradient(135deg,#1B5E20,#2E7D32);border-radius:12px;padding:20px 24px;margin-bottom:20px;color:#fff">' +
+        '<div style="font-size:12px;color:#A5D6A7;font-weight:600;letter-spacing:.5px;margin-bottom:4px">' + (p.area||'—') + '</div>' +
+        '<div style="font-size:18px;font-weight:800;margin-bottom:8px">' + p.name + '</div>' +
+        '<div style="display:flex;flex-wrap:wrap;gap:20px;font-size:13px;color:rgba(255,255,255,.8)">' +
+          '<span>👤 ' + (p.manager_name||'—') + '</span>' +
+          '<span>📅 ' + (fmtDate(p.start_date)||'—') + ' → ' + (fmtDate(p.end_date)||'—') + '</span>' +
+          '<span>💰 ' + fmtR(p.budget) + '</span>' +
+          '<span>📦 ' + p.status + '</span>' +
+        '</div>' +
+        '<div style="margin-top:16px">' +
+          '<div style="display:flex;justify-content:space-between;margin-bottom:6px">' +
+            '<span style="font-size:12px;color:rgba(255,255,255,.7)">Progresso geral</span>' +
+            '<span style="font-size:14px;font-weight:800">' + parseFloat(p.progress||0).toFixed(1) + '%</span>' +
+          '</div>' +
+          '<div style="height:8px;background:rgba(255,255,255,.2);border-radius:4px;overflow:hidden">' +
+            '<div style="height:100%;width:'+p.progress+'%;background:linear-gradient(90deg,#A5D6A7,#4CAF50);border-radius:4px"></div>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+
+      // ── KPIs ──
+      '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">' +
+        ['total_tasks','tasks_done','active_risks','budget'].map((k,i) => {
+          const labels = ['Tarefas','Concluídas','Riscos Ativos','Orçamento'];
+          const vals   = [tasks.length, tasks.filter(t=>t.status==='Concluído').length,
+                          (p.risks||[]).filter(r=>r.status==='Ativo').length, fmtR(p.budget)];
+          const colors = ['var(--text)','var(--g700)','var(--danger)','var(--text)'];
+          return '<div style="background:var(--g50);border:1px solid var(--border-md);border-radius:10px;padding:14px;text-align:center">' +
+            '<div style="font-size:18px;font-weight:800;color:'+colors[i]+'">' + vals[i] + '</div>' +
+            '<div style="font-size:10px;color:var(--text2);font-weight:600;text-transform:uppercase;margin-top:3px">' + labels[i] + '</div>' +
+          '</div>';
+        }).join('') +
+      '</div>' +
+
+      // ── EAP hierárquica ──
+      (tasks.length ? '<div style="margin-bottom:20px">' +
+        '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin-bottom:10px">📋 Estrutura EAP — ' + tasks.length + ' item(s)</div>' +
+        '<div style="border:1px solid var(--border);border-radius:10px;overflow:hidden">' +
+          '<table style="width:100%;border-collapse:collapse;font-size:12px">' +
+            '<thead><tr style="background:linear-gradient(135deg,#1B5E20,#2E7D32)">' +
+              '<th style="padding:8px 12px;text-align:left;color:#fff;font-size:10px;font-weight:700;text-transform:uppercase;width:70px">Cód.</th>' +
+              '<th style="padding:8px 12px;text-align:left;color:#fff;font-size:10px;font-weight:700;text-transform:uppercase">Ação / Entregável</th>' +
+              '<th style="padding:8px 12px;text-align:left;color:#fff;font-size:10px;font-weight:700;text-transform:uppercase;width:120px">Responsável</th>' +
+              '<th style="padding:8px 12px;text-align:left;color:#fff;font-size:10px;font-weight:700;text-transform:uppercase;width:100px">Status</th>' +
+              '<th style="padding:8px 12px;text-align:center;color:#fff;font-size:10px;font-weight:700;text-transform:uppercase;width:80px">%</th>' +
+            '</tr></thead>' +
+            '<tbody>' +
+              tasks.map((t,idx) => {
+                const isObj = t.eap_level===1;
+                const indent = (t.eap_level-1)*16;
+                const prog = Math.round(parseFloat(t.progress||0));
+                const pc = prog>=80?'var(--g600)':prog>=40?'#E65100':'#C62828';
+                return '<tr style="' + (isObj?'background:var(--g50);border-top:2px solid var(--border-md)':idx%2===0?'':'background:var(--subtle)') + '">' +
+                  '<td style="padding:7px 12px;font-weight:'+(isObj?700:500)+';color:var(--g700);font-size:11px">'+( t.eap_code||'—')+'</td>' +
+                  '<td style="padding:7px 12px;padding-left:'+(indent+12)+'px;font-weight:'+(isObj?700:400)+'">'+t.name+'</td>' +
+                  '<td style="padding:7px 12px;color:var(--text2)">'+(t.assignee_name||'—')+'</td>' +
+                  '<td style="padding:7px 12px">'+statusBadge(t.status)+'</td>' +
+                  '<td style="padding:7px 12px;text-align:center">' +
+                    '<div style="display:flex;align-items:center;gap:5px;justify-content:center">' +
+                      '<div style="width:40px;height:4px;background:var(--border);border-radius:2px;overflow:hidden">' +
+                        '<div style="height:100%;width:'+prog+'%;background:'+pc+'"></div>' +
+                      '</div>' +
+                      '<span style="font-size:11px;font-weight:600;color:'+pc+'">'+prog+'%</span>' +
+                    '</div>' +
+                  '</td>' +
+                '</tr>';
+              }).join('') +
+            '</tbody>' +
+          '</table>' +
+        '</div>' +
+      '</div>' : '') +
+
+      // ── Riscos ──
+      ((p.risks||[]).length ? '<div>' +
+        '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin-bottom:10px">⚠️ Riscos (' + p.risks.length + ')</div>' +
+        '<div style="border:1px solid #FFCDD2;border-radius:10px;overflow:hidden">' +
+          '<table style="width:100%;border-collapse:collapse;font-size:12px">' +
+            '<thead><tr style="background:linear-gradient(135deg,#B71C1C,#C62828)">' +
+              '<th style="padding:8px 12px;text-align:left;color:#fff;font-size:10px;text-transform:uppercase">Código</th>' +
+              '<th style="padding:8px 12px;text-align:left;color:#fff;font-size:10px;text-transform:uppercase">Descrição</th>' +
+              '<th style="padding:8px 12px;text-align:center;color:#fff;font-size:10px;text-transform:uppercase;width:80px">Severidade</th>' +
+              '<th style="padding:8px 12px;text-align:left;color:#fff;font-size:10px;text-transform:uppercase;width:90px">Status</th>' +
+            '</tr></thead>' +
+            '<tbody>' + p.risks.map((r,idx) => {
+              const sev = r.probability*r.impact;
+              const sc  = sev>=15?'#C62828':sev>=9?'#E65100':'#2E7D32';
+              return '<tr style="'+(idx%2===0?'':'background:#FFF8F8')+'">' +
+                '<td style="padding:7px 12px;font-weight:700;font-size:11px">'+(r.code||'—')+'</td>' +
+                '<td style="padding:7px 12px">'+r.description+'</td>' +
+                '<td style="padding:7px 12px;text-align:center;font-weight:700;color:'+sc+'">'+sev+'</td>' +
+                '<td style="padding:7px 12px"><span style="background:'+(r.status==='Ativo'?'#C62828':'#2E7D32')+';color:#fff;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700">'+r.status+'</span></td>' +
+              '</tr>';
+            }).join('') + '</tbody>' +
+          '</table>' +
+        '</div>' +
+      '</div>' : '') +
+
+      // ── Botão exportar ──
+      '<div style="margin-top:20px;text-align:right">' +
+        '<button onclick="exportReport(' + id + ');closeModal(\'modal-view\')" class="btn btn-primary">🖨 Exportar PDF</button>' +
+      '</div>';
+
     openModal('modal-view');
-  } catch(e) { toast(e.message,'error'); }
+  } catch(e) { toast('Erro: ' + e.message, 'error'); }
 }
 
-function kpiMini(label, val) {
-  return `<div class="card" style="text-align:center"><div style="font-size:24px;font-weight:700;color:var(--text);letter-spacing:-1px">${val}</div><div style="font-size:11px;color:var(--text2);margin-top:4px;text-transform:uppercase;letter-spacing:.5px">${label}</div></div>`;
-}
-
-async function openCreateProject() {
-  document.getElementById('proj-form').reset();
-  document.getElementById('proj-form-id').value='';
-  document.getElementById('proj-modal-title').textContent='Novo Projeto';
-  await loadUserSelect('proj-manager');
-  openModal('modal-project');
-}
 
 async function editProject(id) {
   try {
@@ -370,17 +471,21 @@ async function editProject(id) {
     document.getElementById('proj-form-id').value=p.id;
     document.getElementById('proj-modal-title').textContent='Editar — '+p.name;
     await loadUserSelect('proj-manager', p.manager_id);
-    const fs=['code','name','description','area','start_date','end_date','status','priority','budget','actual_cost','progress','complexity','strategic_impact','objective','scope_in','scope_out','success_criteria'];
+    const fs=['code','name','description','area','start_date','end_date','status','priority','budget','actual_cost','complexity','strategic_impact','objective','scope_in','scope_out','success_criteria'];
     fs.forEach(f => {
       const el = document.getElementById('proj-' + f.replace(/_/g, '-'));
       if (!el) return;
       let val = p[f] ?? '';
-      // Normaliza datas: remove timestamp do PostgreSQL
-      if ((f === 'start_date' || f === 'end_date') && val) {
-        val = String(val).replace(' ', 'T').split('T')[0];
-      }
+      if ((f === 'start_date' || f === 'end_date') && val)
+        val = String(val).replace(' ','T').split('T')[0];
       el.value = val;
     });
+    // Preenche barra de progresso
+    const prog = Math.round(parseFloat(p.progress)||0);
+    const pRange = document.getElementById('proj-progress');
+    const pDisp  = document.getElementById('proj-progress-display');
+    if (pRange) { pRange.value = prog; pRange.style.background = 'linear-gradient(90deg,var(--g600) '+prog+'%,var(--border) '+prog+'%)'; }
+    if (pDisp)  pDisp.textContent = prog + '%';
     openModal('modal-project');
   } catch(e) { toast(e.message,'error'); }
 }
@@ -391,7 +496,7 @@ async function saveProject(e) {
   const flds = ['code','name','description','area','manager_id','start_date','end_date','status','priority','budget','actual_cost','progress','complexity','strategic_impact','objective','scope_in','scope_out','success_criteria'];
   const body = {};
   flds.forEach(f => { const el=document.getElementById('proj-'+f.replace(/_/g,'-')); if(el) body[f]=el.value||null; });
-  body.budget=parseFloat(body.budget)||0; body.actual_cost=parseFloat(body.actual_cost)||0; body.progress=parseFloat(body.progress)||0;
+  body.budget=parseFloat(body.budget)||0; body.actual_cost=parseFloat(body.actual_cost)||0; body.progress=parseFloat(document.getElementById('proj-progress')?.value)||0;
   try {
     if (id) await PUT('/projects/'+id, body); else await POST('/projects', body);
     toast(id?'Projeto atualizado!':'Projeto criado!','success');
@@ -530,6 +635,12 @@ async function editTask(id) {
       loadUserSelect('task-assignee', t.assignee_id)
     ]);
 
+    // Preenche campos de orçamento
+    const budgetEl = document.getElementById('task-budget');
+    const actualEl = document.getElementById('task-actual-cost');
+    if (budgetEl) budgetEl.value = parseFloat(t.budget||0) || '';
+    if (actualEl) actualEl.value = parseFloat(t.actual_cost||0) || '';
+
     // Preenche campos de texto
     ['name','description','status','eap_code'].forEach(f => {
       const el = document.getElementById('task-' + f.replace(/_/g,'-'));
@@ -629,6 +740,8 @@ async function _doSaveTask(isManual) {
     milestone:   document.getElementById('task-milestone').checked ? 1 : 0,
     eap_level:   parseInt(document.getElementById('task-eap-level').value) || 1,
     eap_code:    document.getElementById('task-eap-code').value || null,
+    budget:      parseFloat(document.getElementById('task-budget')?.value) || 0,
+    actual_cost: parseFloat(document.getElementById('task-actual-cost')?.value) || 0,
   };
   try {
     if (id) {
@@ -639,6 +752,13 @@ async function _doSaveTask(isManual) {
       if (idx >= 0) {
         Object.assign(_tasks[idx], body);
         renderTasks(_tasks);
+      }
+      // Recalcula orçamento total do projeto a partir das tarefas
+      if (body.project_id) {
+        const projectTasks = _tasks.filter(t => t.project_id == body.project_id);
+        const totalBudget = projectTasks.reduce((s, t) => s + parseFloat(t.budget||0), 0);
+        const totalActual = projectTasks.reduce((s, t) => s + parseFloat(t.actual_cost||0), 0);
+        PUT('/projects/' + body.project_id, { budget: totalBudget, actual_cost: totalActual }).catch(()=>{});
       }
       if (isManual) { toast('Tarefa atualizada!', 'success'); closeModal('modal-task'); }
     } else {
@@ -1041,29 +1161,109 @@ function openDeptSwitch() {
 /* ═══════════════════════════════════════════════════════════
    UPDATE SEMANAL
 ═══════════════════════════════════════════════════════════ */
+function pwTab(tab) {
+  const pNew  = document.getElementById('pw-pane-new');
+  const pHist = document.getElementById('pw-pane-hist');
+  const tNew  = document.getElementById('pw-tab-new');
+  const tHist = document.getElementById('pw-tab-hist');
+  if (tab === 'new') {
+    if (pNew)  pNew.style.display  = 'block';
+    if (pHist) pHist.style.display = 'none';
+    if (tNew)  { tNew.style.color='var(--g700)'; tNew.style.borderBottomColor='var(--g600)'; tNew.style.fontWeight='600'; }
+    if (tHist) { tHist.style.color='var(--text2)'; tHist.style.borderBottomColor='transparent'; tHist.style.fontWeight='500'; }
+  } else {
+    if (pNew)  pNew.style.display  = 'none';
+    if (pHist) pHist.style.display = 'block';
+    if (tHist) { tHist.style.color='var(--g700)'; tHist.style.borderBottomColor='var(--g600)'; tHist.style.fontWeight='600'; }
+    if (tNew)  { tNew.style.color='var(--text2)'; tNew.style.borderBottomColor='transparent'; tNew.style.fontWeight='500'; }
+  }
+}
+
 function openWeeklyUpdate(projectId, btnOrName) {
-  const projectName = typeof btnOrName === 'string' ? btnOrName : btnOrName?.dataset?.name || 'Projeto';
-  set$('weekly-project-name', projectName || 'Projeto');
+  const projectName = typeof btnOrName === 'string' ? btnOrName : (btnOrName?.dataset?.name || 'Projeto');
+  set$('weekly-project-name', projectName);
   document.getElementById('weekly-project-id').value = projectId;
   document.getElementById('weekly-form').reset();
   document.getElementById('weekly-project-id').value = projectId;
+
+  // Reset barra de progresso
+  const range  = document.getElementById('weekly-progress-range');
+  const disp   = document.getElementById('weekly-progress-display');
+  const hidden = document.getElementById('weekly-progress');
+  if (range)  { range.value = 0; range.style.background = ''; }
+  if (disp)   disp.textContent = '0%';
+  if (hidden) hidden.value = 0;
+
+  // Data padrão = hoje
+  const weekEl = document.getElementById('weekly-week');
+  if (weekEl) weekEl.value = new Date().toISOString().slice(0, 10);
+
+  pwTab('new');
   openModal('modal-weekly');
+  _loadWeeklyHistory(projectId);
+}
+
+async function _loadWeeklyHistory(projectId) {
+  const list = document.getElementById('weekly-updates-list');
+  if (!list) return;
+  list.innerHTML = '<div style="text-align:center;color:var(--text3);padding:30px 0">⏳ Carregando…</div>';
+  try {
+    const updates = await GET('/projects/' + projectId + '/updates').catch(() => []);
+    if (!updates || !updates.length) {
+      list.innerHTML = '<div style="text-align:center;color:var(--text3);font-size:13px;padding:48px 20px"><div style="font-size:36px;margin-bottom:12px">📭</div><div style="font-weight:600;margin-bottom:6px">Nenhum update ainda</div><div>Registre o primeiro na aba "Novo Update"</div></div>';
+      return;
+    }
+    const fD = v => { if(!v)return'—'; const s=String(v).split('T')[0]; const[y,m,d]=s.split('-'); return d+'/'+m+'/'+y; };
+    list.innerHTML = updates.map(u => {
+      const prog = u.progress != null ? parseFloat(u.progress).toFixed(0) : null;
+      const pc   = prog >= 80 ? '#2E7D32' : prog >= 40 ? '#E65100' : '#C62828';
+      return '<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:12px">' +
+        '<div style="background:linear-gradient(135deg,#1B5E20,#2E7D32);padding:12px 16px;display:flex;justify-content:space-between;align-items:center">' +
+          '<span style="font-size:12px;font-weight:700;color:#fff">📅 Semana de ' + fD(u.week) + '</span>' +
+          '<div style="display:flex;gap:6px">' +
+            (u.status ? '<span style="background:rgba(255,255,255,.2);color:#fff;padding:2px 10px;border-radius:10px;font-size:11px">' + u.status + '</span>' : '') +
+            (prog != null ? '<span style="background:rgba(255,255,255,.2);color:#fff;padding:2px 10px;border-radius:10px;font-size:11px;font-weight:700">' + prog + '%</span>' : '') +
+          '</div>' +
+        '</div>' +
+        '<div style="padding:14px 16px;display:flex;flex-direction:column;gap:8px">' +
+          (prog != null ? '<div style="background:var(--subtle);border-radius:8px;overflow:hidden;height:6px"><div style="height:100%;width:'+prog+'%;background:linear-gradient(90deg,'+pc+',#66BB6A);border-radius:8px"></div></div>' : '') +
+          '<div style="background:#F1F8E9;border-left:3px solid #2E7D32;border-radius:0 8px 8px 0;padding:10px 12px"><div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#2E7D32;margin-bottom:4px">✅ Comentário</div><div style="font-size:13px">' + (u.comment||'—') + '</div></div>' +
+          (u.highlights ? '<div style="background:#E8F5E9;border-left:3px solid #43A047;border-radius:0 8px 8px 0;padding:10px 12px"><div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#43A047;margin-bottom:4px">✨ Destaques</div><div style="font-size:13px">'+u.highlights+'</div></div>' : '') +
+          (u.blockers  ? '<div style="background:#FFF3E0;border-left:3px solid #E65100;border-radius:0 8px 8px 0;padding:10px 12px"><div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#E65100;margin-bottom:4px">🚧 Bloqueios</div><div style="font-size:13px">'+u.blockers+'</div></div>' : '') +
+          (u.next_steps ? '<div style="background:#E3F2FD;border-left:3px solid #1565C0;border-radius:0 8px 8px 0;padding:10px 12px"><div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#1565C0;margin-bottom:4px">🎯 Próximos Passos</div><div style="font-size:13px">'+u.next_steps+'</div></div>' : '') +
+          '<div style="font-size:10px;color:var(--text3);text-align:right">👤 ' + (u.user_name||'—') + '</div>' +
+        '</div></div>';
+    }).join('');
+  } catch(e) {
+    list.innerHTML = '<div style="color:var(--danger);padding:16px;text-align:center">Erro: ' + e.message + '</div>';
+  }
 }
 async function saveWeeklyUpdate(e) {
   e.preventDefault();
   const projectId = document.getElementById('weekly-project-id').value;
   const body = {
+    week:       document.getElementById('weekly-week')?.value || new Date().toISOString().slice(0,10),
     comment:    document.getElementById('weekly-comment').value,
-    highlights: document.getElementById('weekly-highlights').value,
-    blockers:   document.getElementById('weekly-blockers').value,
-    next_steps: document.getElementById('weekly-next-steps').value,
+    highlights: document.getElementById('weekly-highlights').value || null,
+    blockers:   document.getElementById('weekly-blockers').value || null,
+    next_steps: document.getElementById('weekly-next-steps').value || null,
     progress:   parseFloat(document.getElementById('weekly-progress').value) || null,
     status:     document.getElementById('weekly-status').value || null,
   };
   try {
     await POST('/projects/' + projectId + '/weekly-update', body);
-    toast('Update semanal registrado!', 'success');
-    closeModal('modal-weekly');
+    toast('Update registrado!', 'success');
+    // Reset campos e vai pro histórico
+    document.getElementById('weekly-comment').value   = '';
+    document.getElementById('weekly-highlights').value = '';
+    document.getElementById('weekly-blockers').value   = '';
+    document.getElementById('weekly-next-steps').value = '';
+    const range = document.getElementById('weekly-progress-range');
+    if (range) { range.value = 0; range.style.background = ''; }
+    document.getElementById('weekly-progress').value = 0;
+    document.getElementById('weekly-progress-display').textContent = '0%';
+    await _loadWeeklyHistory(projectId);
+    pwTab('hist');
     loadDashboard();
   } catch(err) { toast(err.message, 'error'); }
 }
