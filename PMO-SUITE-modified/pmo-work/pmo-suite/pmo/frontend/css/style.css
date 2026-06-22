@@ -291,3 +291,12 @@ tbody td{padding:11px 14px;color:var(--text2);vertical-align:middle}
   .form-grid,.form-grid-3{grid-template-columns:1fr}
 }
 @media print{.sidebar,.topbar,.btn,.filter-bar,.td-actions{display:none!important}.main{margin-left:0!important;width:100%!important}.content{padding:0}}
+
+/* ── Separadores de Departamento na Tabela de Tarefas ── */
+.dept-separator-row td { padding: 0 !important; border: none !important; }
+.dept-separator-row + tr td { border-top: none !important; }
+.proj-subheader-row td { padding: 0 !important; border: none !important; }
+.proj-subheader-row + tr td { border-top: none !important; }
+
+/* ── Melhorias gerais nos modais ── */
+.modal.modal-lg { max-height: 90vh; }
