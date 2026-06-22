@@ -827,7 +827,7 @@ async function _doSaveTask(isManual) {
       const idx = _tasks.findIndex(t => t.id == id);
       if (idx >= 0) {
         Object.assign(_tasks[idx], body);
-        renderTasks(_tasks);
+        filterTasks(); // preserva filtros ativos ao invés de resetar com renderTasks(_tasks)
       }
       // Recalcula orçamento total do projeto a partir das tarefas
       if (body.project_id) {
