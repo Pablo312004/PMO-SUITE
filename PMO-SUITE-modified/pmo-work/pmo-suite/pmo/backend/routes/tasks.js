@@ -12,6 +12,20 @@ module.exports = (db) => {
     else        await db.run('UPDATE projects SET progress=$1 WHERE id=$2', [p, projectId]);
   }
 
+  /* ── ALL UPDATES — para gráfico de atividade por gestor ──── */
+  router.get('/all-updates', authenticate, async (req, res) => {
+    try {
+      const rows = await db.all(
+        `SELECT tu.id, tu.task_id, tu.week_ref, tu.created_at, tu.progress,
+                COALESCE(u.name, 'Sem gestor') as user_name
+         FROM task_updates tu
+         LEFT JOIN users u ON u.id = tu.user_id
+         ORDER BY tu.week_ref ASC, tu.created_at ASC`
+      );
+      res.json(rows);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+
   /* ── LIST ────────────────────────────────────────────────── */
   router.get('/', authenticate, async (req, res) => {
     try {

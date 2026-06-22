@@ -125,7 +125,8 @@ function riskBadge(sev) {
 }
 
 function fmtCurrency(n) {
-  if (!n && n !== 0) return '—';
+  n = parseFloat(n);
+  if (isNaN(n)) return '—';
   if (n >= 1000000) return `R$ ${(n/1000000).toFixed(1)}M`;
   if (n >= 1000)    return `R$ ${Math.round(n/1000)}k`;
   return `R$ ${n.toFixed(0)}`;

@@ -138,7 +138,7 @@
         <div class="grid g4" style="margin-bottom:20px">
           <div class="card"><div class="kpi-icon green">%</div><div class="kpi-val" id="kpi-progress">—</div><div class="kpi-label">Progresso Médio</div></div>
           <div class="card"><div class="kpi-icon neutral">R$</div><div class="kpi-val" id="kpi-budget">—</div><div class="kpi-label">Orçamento Total</div></div>
-          <div class="card"><div class="kpi-icon green">↑</div><div class="kpi-val" id="kpi-actual">—</div><div class="kpi-label">ROI (Retorno sobre o Investimento) Realizado</div></div>
+          <div class="card"><div class="kpi-icon green">↑</div><div class="kpi-val" id="kpi-actual">—</div><div class="kpi-label">Custo Realizado</div></div>
           <div class="card"><div class="kpi-icon yellow">⚑</div><div class="kpi-val" id="kpi-risks" style="color:var(--warn)">—</div><div class="kpi-label">Riscos Ativos</div></div>
         </div>
         <div class="grid g3" style="margin-bottom:16px">
@@ -148,7 +148,7 @@
         </div>
         <div class="grid g2" style="margin-bottom:16px">
           <div class="card"><div class="chart-title">Orçado vs. Realizado</div><div class="chart-sub">Valores em R$ mil</div><canvas id="chart-financial" height="210"></canvas></div>
-          <div class="card"><div class="chart-title">Evolução do Portfólio</div><div class="chart-sub">Planejado vs. real</div><canvas id="chart-evolution" height="210"></canvas></div>
+          <div class="card"><div class="chart-title">Atividade por Gestor</div><div class="chart-sub">Movimentações diárias acumuladas</div><canvas id="chart-evolution" height="210"></canvas></div>
         </div>
         <div class="grid g2" style="margin-bottom:0">
           <div class="card">
@@ -260,7 +260,7 @@
         </div>
         <div class="card">
           <div class="table-wrap"><table>
-            <thead><tr><th>Nome</th><th>Função</th><th>E-mail</th><th>Carga Total</th><th>ROI (Retorno sobre o Investimento)/Mês</th><th>Projetos</th><th>Disponib.</th><th>Ações</th></tr></thead>
+            <thead><tr><th>Nome</th><th>Função</th><th>E-mail</th><th>Carga Total</th><th>Custo/Mês</th><th>Projetos</th><th>Disponib.</th><th>Ações</th></tr></thead>
             <tbody id="resources-tbody"><tr><td colspan="8" class="loading"><div class="spinner"></div></td></tr></tbody>
           </table></div>
         </div>
@@ -305,7 +305,7 @@
           <div class="chart-sub">Pontuação composta de 5 dimensões</div>
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;font-size:13px">
             <div style="padding:12px;background:var(--g50);border-radius:8px"><b style="color:var(--g800)">Prazo (30%)</b><br><span style="color:var(--text2)">Baseado no SPI</span></div>
-            <div style="padding:12px;background:var(--g50);border-radius:8px"><b style="color:var(--g800)">ROI (Retorno sobre o Investimento) (25%)</b><br><span style="color:var(--text2)">Baseado no CPI</span></div>
+            <div style="padding:12px;background:var(--g50);border-radius:8px"><b style="color:var(--g800)">Custo (25%)</b><br><span style="color:var(--text2)">Baseado no CPI</span></div>
             <div style="padding:12px;background:var(--g50);border-radius:8px"><b style="color:var(--g800)">Escopo (20%)</b><br><span style="color:var(--text2)">% entregáveis concluídos</span></div>
             <div style="padding:12px;background:var(--g50);border-radius:8px"><b style="color:var(--g800)">Riscos (15%)</b><br><span style="color:var(--text2)">Severidade dos ativos</span></div>
             <div style="padding:12px;background:var(--g50);border-radius:8px"><b style="color:var(--g800)">Base (10%)</b><br><span style="color:var(--text2)">Fixo por projeto ativo</span></div>
@@ -508,7 +508,7 @@
           <input id="proj-budget" class="form-input" type="number" placeholder="0" step="1000">
         </div>
         <div>
-          <label class="form-label">ROI (Retorno sobre o Investimento) Realizado (R$)</label>
+          <label class="form-label">Custo Realizado (R$)</label>
           <input id="proj-actual-cost" class="form-input" type="number" placeholder="0">
         </div>
         <div>
@@ -697,11 +697,11 @@
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
           <div>
-            <label style="display:block;font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text2);margin-bottom:8px">💰 ROI (Retorno sobre o Investimento) Estimado (R$)</label>
+            <label style="display:block;font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text2);margin-bottom:4px">💰 ROI (Retorno sobre o Investimento) Estimado (R$)</label>
             <input id="task-budget" class="input" type="number" min="0" step="100" placeholder="0,00" oninput="taskAutoSave()" style="width:100%">
           </div>
           <div>
-            <label style="display:block;font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text2);margin-bottom:8px">📊 ROI (Retorno sobre o Investimento) Realizado (R$)</label>
+            <label style="display:block;font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text2);margin-bottom:4px">📊 ROI (Retorno sobre o Investimento) Realizado (R$)</label>
             <input id="task-actual-cost" class="input" type="number" min="0" step="100" placeholder="0,00" oninput="taskAutoSave()" style="width:100%">
           </div>
         </div>
@@ -755,7 +755,7 @@
       <div class="form-group"><label class="form-label">Nome *</label><input id="res-name" class="form-input" required></div>
       <div class="form-group"><label class="form-label">Função/Cargo</label><input id="res-role" class="form-input"></div>
       <div class="form-group"><label class="form-label">E-mail</label><input id="res-email" class="form-input" type="email"></div>
-      <div class="form-group"><label class="form-label">ROI (Retorno sobre o Investimento) (R$)</label><input id="res-cost-month" class="form-input" type="number" placeholder="0"></div>
+      <div class="form-group"><label class="form-label">Custo Mensal (R$)</label><input id="res-cost-month" class="form-input" type="number" placeholder="0"></div>
       <div class="form-group"><label class="form-label">Disponibilidade (%)</label><input id="res-availability" class="form-input" type="number" min="0" max="100" value="100"></div>
     </div>
     <div class="modal-footer"><button type="button" class="btn btn-secondary" onclick="closeModal('modal-resource')">Cancelar</button><button type="submit" class="btn btn-primary">Salvar</button></div>
@@ -867,7 +867,7 @@
       </div>
       <div style="margin-top:16px;padding:13px 16px;background:var(--info-bg);border:1px solid rgba(21,101,192,.2);border-radius:8px;font-size:13px;color:var(--text2)">
         <b style="color:var(--info)">Formato esperado:</b>
-        Cabeçalho com Nome, Área, Código, Gestor e Datas · Colunas: Código EAP · Ação/Entregável · Responsável · Prioridade · Status · Início · Término · Progresso · ROI (Retorno sobre o Investimento) Estimado · ROI (Retorno sobre o Investimento) Realizado · Observações
+        Cabeçalho com Nome, Área, Código, Gestor e Datas · Colunas: Código EAP · Ação/Entregável · Responsável · Prioridade · Status · Início · Término · Progresso · Custo Estimado · Custo Realizado · Observações
         <div style="margin-top:10px"><button class="btn btn-secondary btn-sm" onclick="xlsDownloadTemplate()">⬇ Baixar Template</button></div>
       </div>
     </div>
