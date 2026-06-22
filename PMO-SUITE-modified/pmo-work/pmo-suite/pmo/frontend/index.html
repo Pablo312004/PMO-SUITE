@@ -61,6 +61,7 @@
       <div class="nav-item" onclick="showSection('kpis',this)"><span class="nav-icon">◐</span><span class="nav-text">KPIs / EVM</span></div>
       <div class="nav-item" onclick="showSection('bi',this)"><span class="nav-icon">◑</span><span class="nav-text">Business Intelligence</span></div>
       <div class="nav-section">Sistema</div>
+      <div class="nav-item" onclick="showSection('relatorio',this)"><span class="nav-icon">📄</span><span class="nav-text">Relatório</span></div>
       <div class="nav-item" onclick="showSection('integrations',this)"><span class="nav-icon">⚙</span><span class="nav-text">Integrações</span></div>
     </div>
     <div class="sidebar-user">
@@ -148,7 +149,15 @@
         </div>
         <div class="grid g2" style="margin-bottom:16px">
           <div class="card"><div class="chart-title">Orçado vs. Realizado</div><div class="chart-sub">Valores em R$ mil</div><canvas id="chart-financial" height="210"></canvas></div>
-          <div class="card"><div class="chart-title">Atividade por Gestor</div><div class="chart-sub">Movimentações diárias acumuladas</div><canvas id="chart-evolution" height="210"></canvas></div>
+          <div class="card" style="display:flex;flex-direction:column;gap:0">
+            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:4px">
+              <div><div class="chart-title">Atividade por Gestor</div><div class="chart-sub">Movimentações diárias acumuladas</div></div>
+              <select id="evolution-month-filter" onchange="renderEvolutionChart()"
+                style="font-size:12px;padding:5px 10px;border:1.5px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);cursor:pointer;outline:none">
+              </select>
+            </div>
+            <canvas id="chart-evolution" height="195"></canvas>
+          </div>
         </div>
         <div class="grid g2" style="margin-bottom:0">
           <div class="card">
@@ -380,6 +389,102 @@
             <li>Preencha no <code style="background:var(--subtle);padding:1px 5px;border-radius:3px">.env</code>: <code>GOOGLE_CLIENT_ID</code> e <code>GOOGLE_CLIENT_SECRET</code></li>
             <li>Reinicie o servidor</li>
           </ol>
+        </div>
+      </div>
+
+      <!-- ════ RELATÓRIO ════ -->
+      <div class="section" id="sec-relatorio">
+        <div class="page-header">
+          <div><div class="page-title">📄 Relatório Personalizado</div><div class="page-desc">Monte e exporte seu relatório em PDF</div></div>
+        </div>
+
+        <!-- Passo 1: Filtros -->
+        <div class="card" style="margin-bottom:16px">
+          <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--g700);margin-bottom:16px;display:flex;align-items:center;gap:8px">
+            <div style="width:3px;height:14px;background:var(--g700);border-radius:2px"></div>1. Selecione o escopo
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px">
+            <div>
+              <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text2);margin-bottom:8px">Área</label>
+              <select id="rel-filter-area" class="input" onchange="relLoadProjects()" style="width:100%">
+                <option value="">Todas as áreas</option>
+                <option>T.I</option><option>Financeiro</option><option>Controladoria</option>
+                <option>Fiscal</option><option>RH/DP</option><option>Compras</option>
+                <option>Suprimentos MP</option><option>Qualidade/Laboratório</option><option>Produção</option>
+              </select>
+            </div>
+            <div>
+              <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text2);margin-bottom:8px">Status do Projeto</label>
+              <select id="rel-filter-status" class="input" onchange="relLoadProjects()" style="width:100%">
+                <option value="">Todos os status</option>
+                <option>Em andamento</option><option>Planejado</option>
+                <option>Concluído</option><option>Atrasado</option><option>Em espera</option>
+              </select>
+            </div>
+            <div>
+              <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text2);margin-bottom:8px">Período (opcional)</label>
+              <div style="display:flex;gap:6px">
+                <input type="date" id="rel-date-start" class="input" style="width:50%" placeholder="Início">
+                <input type="date" id="rel-date-end" class="input" style="width:50%" placeholder="Fim">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Passo 2: Seleção de projetos -->
+        <div class="card" style="margin-bottom:16px">
+          <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#1565C0;margin-bottom:16px;display:flex;align-items:center;gap:8px">
+            <div style="width:3px;height:14px;background:#1565C0;border-radius:2px"></div>2. Escolha os projetos
+          </div>
+          <div style="display:flex;gap:10px;margin-bottom:12px">
+            <button class="btn btn-secondary" style="font-size:12px" onclick="relSelectAll()">✅ Selecionar todos</button>
+            <button class="btn btn-secondary" style="font-size:12px" onclick="relSelectNone()">☐ Limpar seleção</button>
+            <span id="rel-proj-count" style="font-size:12px;color:var(--text2);align-self:center;margin-left:auto"></span>
+          </div>
+          <div id="rel-projects-list" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px;max-height:300px;overflow-y:auto">
+            <div style="text-align:center;color:var(--text3);padding:30px;grid-column:1/-1">Carregando projetos…</div>
+          </div>
+        </div>
+
+        <!-- Passo 3: Conteúdo do relatório -->
+        <div class="card" style="margin-bottom:16px">
+          <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#E65100;margin-bottom:16px;display:flex;align-items:center;gap:8px">
+            <div style="width:3px;height:14px;background:#E65100;border-radius:2px"></div>3. O que incluir no relatório
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px">
+            <label style="display:flex;align-items:flex-start;gap:10px;padding:12px 14px;background:var(--subtle);border:1.5px solid var(--border);border-radius:10px;cursor:pointer">
+              <input type="checkbox" id="rel-inc-overview" checked style="margin-top:2px;accent-color:var(--g700)">
+              <div><div style="font-size:13px;font-weight:600">📋 Visão Geral do Projeto</div><div style="font-size:11px;color:var(--text2);margin-top:2px">Dados gerais, gestor, datas, status e progresso</div></div>
+            </label>
+            <label style="display:flex;align-items:flex-start;gap:10px;padding:12px 14px;background:var(--subtle);border:1.5px solid var(--border);border-radius:10px;cursor:pointer">
+              <input type="checkbox" id="rel-inc-tasks" checked style="margin-top:2px;accent-color:var(--g700)">
+              <div><div style="font-size:13px;font-weight:600">✅ Ações e Tarefas (EAP)</div><div style="font-size:11px;color:var(--text2);margin-top:2px">Estrutura analítica com progresso por tarefa</div></div>
+            </label>
+            <label style="display:flex;align-items:flex-start;gap:10px;padding:12px 14px;background:var(--subtle);border:1.5px solid var(--border);border-radius:10px;cursor:pointer">
+              <input type="checkbox" id="rel-inc-updates" checked style="margin-top:2px;accent-color:var(--g700)">
+              <div><div style="font-size:13px;font-weight:600">📅 Atividades Semanais</div><div style="font-size:11px;color:var(--text2);margin-top:2px">Registros de execução, bloqueios e próximos passos</div></div>
+            </label>
+            <label style="display:flex;align-items:flex-start;gap:10px;padding:12px 14px;background:var(--subtle);border:1.5px solid var(--border);border-radius:10px;cursor:pointer">
+              <input type="checkbox" id="rel-inc-risks" style="margin-top:2px;accent-color:var(--g700)">
+              <div><div style="font-size:13px;font-weight:600">⚑ Riscos</div><div style="font-size:11px;color:var(--text2);margin-top:2px">Riscos ativos associados ao projeto</div></div>
+            </label>
+            <label style="display:flex;align-items:flex-start;gap:10px;padding:12px 14px;background:var(--subtle);border:1.5px solid var(--border);border-radius:10px;cursor:pointer">
+              <input type="checkbox" id="rel-inc-financial" style="margin-top:2px;accent-color:var(--g700)">
+              <div><div style="font-size:13px;font-weight:600">💰 Financeiro / ROI</div><div style="font-size:11px;color:var(--text2);margin-top:2px">Orçado vs. realizado por projeto</div></div>
+            </label>
+            <label style="display:flex;align-items:flex-start;gap:10px;padding:12px 14px;background:var(--subtle);border:1.5px solid var(--border);border-radius:10px;cursor:pointer">
+              <input type="checkbox" id="rel-inc-kpis" style="margin-top:2px;accent-color:var(--g700)">
+              <div><div style="font-size:13px;font-weight:600">📊 KPIs / EVM</div><div style="font-size:11px;color:var(--text2);margin-top:2px">Indicadores de valor agregado e CPI/SPI</div></div>
+            </label>
+          </div>
+        </div>
+
+        <!-- Ação -->
+        <div style="display:flex;justify-content:flex-end;gap:12px">
+          <button class="btn btn-secondary" onclick="relPreview()">👁 Pré-visualizar</button>
+          <button class="btn btn-primary" style="background:linear-gradient(135deg,#1B5E20,#2E7D32);border:none;padding:11px 28px;font-size:14px;font-weight:600;display:flex;align-items:center;gap:8px" onclick="relExportPDF()">
+            🖨 Gerar PDF
+          </button>
         </div>
       </div>
 

@@ -264,120 +264,11 @@ async function loadDashboard() {
       options:{ plugins:{ legend:{ position:'bottom', labels:{ boxWidth:10 } } },
         scales:{ x:{ grid:{ color:'#F5F5F5' } }, y:{ beginAtZero:true, ticks:{ callback:v=>'R$'+v+'k' }, grid:{ color:'#F5F5F5' } } } } });
 
-    // ── Gráfico de escadinha: atividade diária acumulada por gestor ──
-    destroyChart('evolution');
-    const eCtx = document.getElementById('chart-evolution')?.getContext('2d');
-    if (eCtx) {
-      // Busca todos os task_updates com user_name e week_ref
-      const allUpdates = await GET('/tasks/all-updates').catch(() => null);
-
-      // Fallback: agrupa projetos por gestor e simula movimentações a partir dos dados que temos
-      // Usa manager_name + progress dos projetos como proxy enquanto não há rota específica
-      const managerColors = [
-        '#2E7D32','#1565C0','#E65100','#6A1B9A','#00838F',
-        '#AD1457','#F57F17','#37474F','#558B2F','#4E342E'
-      ];
-
-      let datasets = [];
-      let labels   = [];
-
-      if (allUpdates && Array.isArray(allUpdates) && allUpdates.length) {
-        // Agrupa por user_name e week_ref, conta updates por dia
-        const byUser = {};
-        allUpdates.forEach(u => {
-          const user = u.user_name || 'Sem gestor';
-          const date = (u.week_ref || u.created_at || '').slice(0,10);
-          if (!date) return;
-          if (!byUser[user]) byUser[user] = {};
-          byUser[user][date] = (byUser[user][date] || 0) + 1;
-        });
-
-        // Gera lista de todas as datas únicas ordenadas
-        const allDates = [...new Set(allUpdates.map(u => (u.week_ref||u.created_at||'').slice(0,10)).filter(Boolean))].sort();
-        labels = allDates.map(d => { const p = d.split('-'); return p[2]+'/'+p[1]; });
-
-        let ci = 0;
-        Object.entries(byUser).forEach(([user, dateCounts]) => {
-          // Escadinha: acumula count ao longo dos dias
-          let acc = 0;
-          const data = allDates.map(d => {
-            acc += (dateCounts[d] || 0);
-            return acc;
-          });
-          datasets.push({
-            label: user,
-            data,
-            borderColor: managerColors[ci % managerColors.length],
-            backgroundColor: 'transparent',
-            stepped: 'before',   // <- escadinha
-            tension: 0,
-            pointRadius: 4,
-            pointHoverRadius: 6,
-            borderWidth: 2.5,
-          });
-          ci++;
-        });
-      }
-
-      // Se não tem dados reais ainda, gera dados ilustrativos por gestor dos projetos
-      if (!datasets.length) {
-        const managers = [...new Set((allProjects||[]).map(p => p.manager_name).filter(Boolean))];
-        // Últimos 14 dias
-        const today = new Date();
-        const days  = Array.from({length:14}, (_,i) => {
-          const d = new Date(today); d.setDate(d.getDate() - (13-i));
-          return d.toISOString().slice(0,10);
-        });
-        labels = days.map(d => { const p = d.split('-'); return p[2]+'/'+p[1]; });
-
-        managers.slice(0,6).forEach((mgr, ci) => {
-          let acc = 0;
-          const data = days.map((_, i) => {
-            // simula movimentação em ~40% dos dias, com seed baseado no nome
-            const seed = mgr.charCodeAt(0) + i;
-            if (seed % 3 === 0 || seed % 7 === 1) acc++;
-            return acc;
-          });
-          datasets.push({
-            label: mgr,
-            data,
-            borderColor: managerColors[ci % managerColors.length],
-            backgroundColor: 'transparent',
-            stepped: 'before',
-            tension: 0,
-            pointRadius: 3,
-            pointHoverRadius: 5,
-            borderWidth: 2,
-          });
-        });
-      }
-
-      if (datasets.length && eCtx) {
-        charts.evolution = new Chart(eCtx, {
-          type: 'line',
-          data: { labels, datasets },
-          options: {
-            interaction: { mode: 'index', intersect: false },
-            plugins: {
-              legend: {
-                position: 'bottom',
-                labels: { boxWidth: 12, padding: 10, font: { size: 11 } }
-              },
-              tooltip: {
-                callbacks: {
-                  title: ctx => 'Dia: ' + ctx[0].label,
-                  label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y} movimentação(ões)`
-                }
-              }
-            },
-            scales: {
-              x: { grid: { color: '#F5F5F5' }, ticks: { maxRotation: 45 } },
-              y: { beginAtZero: true, grid: { color: '#F5F5F5' }, ticks: { stepSize: 1, callback: v => Number.isInteger(v) ? v : '' } }
-            }
-          }
-        });
-      }
-    }
+    // ── Popular filtro de mês e renderizar gráfico de escadinha ──
+    _evolutionUpdates  = await GET('/tasks/all-updates').catch(() => []);
+    _evolutionProjects = allProjects || [];
+    _populateEvolutionMonths();
+    renderEvolutionChart();
 
     // Painel de atrasados
     const tbody = document.getElementById('critical-tbody');
@@ -391,8 +282,426 @@ async function loadDashboard() {
   } catch(e) { toast('Erro no dashboard: '+e.message,'error'); }
 }
 
+/* ═══════════════════ GRÁFICO ESCADINHA POR GESTOR ═══════════════════ */
+
+const _MGR_COLORS = [
+  '#2E7D32','#1565C0','#E65100','#6A1B9A','#00838F',
+  '#AD1457','#F57F17','#37474F','#558B2F','#4E342E'
+];
+
+function _populateEvolutionMonths() {
+  const sel = document.getElementById('evolution-month-filter');
+  if (!sel) return;
+
+  // Coleta meses dos updates reais
+  const monthSet = new Set();
+  (_evolutionUpdates || []).forEach(u => {
+    const d = (u.week_ref || u.created_at || '').slice(0, 7); // YYYY-MM
+    if (d) monthSet.add(d);
+  });
+
+  // Sempre inclui o mês corrente
+  const now = new Date();
+  const curMonth = now.toISOString().slice(0, 7);
+  monthSet.add(curMonth);
+
+  const months = [...monthSet].sort().reverse();
+  const MONTH_NAMES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+
+  sel.innerHTML = months.map(m => {
+    const [y, mo] = m.split('-');
+    return `<option value="${m}">${MONTH_NAMES[parseInt(mo)-1]} ${y}</option>`;
+  }).join('');
+}
+
+function renderEvolutionChart() {
+  const sel      = document.getElementById('evolution-month-filter');
+  const selMonth = sel?.value || new Date().toISOString().slice(0, 7);
+  const [yr, mo] = selMonth.split('-').map(Number);
+
+  // Todos os dias do mês selecionado
+  const daysInMonth = new Date(yr, mo, 0).getDate();
+  const allDays = Array.from({ length: daysInMonth }, (_, i) => {
+    const d = String(i + 1).padStart(2, '0');
+    return `${yr}-${String(mo).padStart(2,'0')}-${d}`;
+  });
+  const labels = allDays.map(d => d.slice(8) + '/' + d.slice(5,7));
+
+  let datasets = [];
+
+  const updates = (_evolutionUpdates || []).filter(u => {
+    const d = (u.week_ref || u.created_at || '').slice(0, 7);
+    return d === selMonth;
+  });
+
+  if (updates.length) {
+    const byUser = {};
+    updates.forEach(u => {
+      const user = u.user_name || 'Sem gestor';
+      const date = (u.week_ref || u.created_at || '').slice(0, 10);
+      if (!date) return;
+      if (!byUser[user]) byUser[user] = {};
+      byUser[user][date] = (byUser[user][date] || 0) + 1;
+    });
+
+    let ci = 0;
+    Object.entries(byUser).forEach(([user, dateCounts]) => {
+      let acc = 0;
+      const data = allDays.map(d => {
+        acc += (dateCounts[d] || 0);
+        return acc;
+      });
+      datasets.push({
+        label: user, data,
+        borderColor: _MGR_COLORS[ci % _MGR_COLORS.length],
+        backgroundColor: 'transparent',
+        stepped: 'before', tension: 0, pointRadius: 3, pointHoverRadius: 5, borderWidth: 2.5,
+      });
+      ci++;
+    });
+  }
+
+  // Fallback ilustrativo se não há dados reais no mês
+  if (!datasets.length) {
+    const managers = [...new Set((_evolutionProjects||[]).map(p => p.manager_name).filter(Boolean))].slice(0,5);
+    managers.forEach((mgr, ci) => {
+      let acc = 0;
+      const data = allDays.map((_, i) => {
+        const seed = mgr.charCodeAt(0) + i;
+        if (seed % 4 === 0 || seed % 6 === 1) acc++;
+        return acc;
+      });
+      datasets.push({
+        label: mgr + ' (ilustrativo)', data,
+        borderColor: _MGR_COLORS[ci % _MGR_COLORS.length],
+        backgroundColor: 'transparent',
+        stepped: 'before', tension: 0, pointRadius: 2, pointHoverRadius: 4, borderWidth: 2,
+        borderDash: [4, 3],
+      });
+    });
+  }
+
+  destroyChart('evolution');
+  const eCtx = document.getElementById('chart-evolution')?.getContext('2d');
+  if (!eCtx || !datasets.length) return;
+
+  charts.evolution = new Chart(eCtx, {
+    type: 'line',
+    data: { labels, datasets },
+    options: {
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { position: 'bottom', labels: { boxWidth: 12, padding: 8, font: { size: 10 } } },
+        tooltip: {
+          callbacks: {
+            title: ctx => 'Dia ' + ctx[0].label,
+            label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y} registro(s)`
+          }
+        }
+      },
+      scales: {
+        x: { grid: { color: '#F5F5F5' }, ticks: { maxTicksLimit: 15, maxRotation: 0 } },
+        y: { beginAtZero: true, grid: { color: '#F5F5F5' }, ticks: { stepSize: 1, callback: v => Number.isInteger(v) ? v : '' } }
+      }
+    }
+  });
+}
+
+/* ═══════════════════ RELATÓRIO PERSONALIZADO ═══════════════════════ */
+
+let _relProjects = [];
+
+async function loadRelatorio() {
+  await relLoadProjects();
+}
+
+async function relLoadProjects() {
+  const area   = document.getElementById('rel-filter-area')?.value   || '';
+  const status = document.getElementById('rel-filter-status')?.value || '';
+  try {
+    let list = await GET('/projects').catch(() => []);
+    if (area)   list = list.filter(p => p.area   === area);
+    if (status) list = list.filter(p => p.status === status);
+    _relProjects = list;
+    _renderRelProjectList();
+  } catch(e) { toast('Erro ao carregar projetos: ' + e.message, 'error'); }
+}
+
+function _renderRelProjectList() {
+  const container = document.getElementById('rel-projects-list');
+  const counter   = document.getElementById('rel-proj-count');
+  if (!container) return;
+  if (!_relProjects.length) {
+    container.innerHTML = '<div style="text-align:center;color:var(--text3);padding:30px;grid-column:1/-1">Nenhum projeto encontrado com esses filtros</div>';
+    if (counter) counter.textContent = '';
+    return;
+  }
+  container.innerHTML = _relProjects.map(p => `
+    <label style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;background:var(--subtle);border:1.5px solid var(--border);border-radius:10px;cursor:pointer;transition:border .15s"
+      onmouseover="this.style.borderColor='var(--g600)'" onmouseout="this.style.borderColor='var(--border)'">
+      <input type="checkbox" class="rel-proj-cb" value="${p.id}" checked style="margin-top:3px;accent-color:var(--g700);flex-shrink:0">
+      <div style="min-width:0">
+        <div style="font-size:12px;font-weight:700;color:var(--g700)">${p.code}</div>
+        <div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${p.name}</div>
+        <div style="font-size:11px;color:var(--text2);margin-top:2px">${p.area||'—'} · ${p.manager_name||'—'}</div>
+      </div>
+    </label>`).join('');
+  _updateRelCount();
+  document.querySelectorAll('.rel-proj-cb').forEach(cb => cb.addEventListener('change', _updateRelCount));
+}
+
+function _updateRelCount() {
+  const total    = document.querySelectorAll('.rel-proj-cb').length;
+  const selected = document.querySelectorAll('.rel-proj-cb:checked').length;
+  const counter  = document.getElementById('rel-proj-count');
+  if (counter) counter.textContent = `${selected} de ${total} projeto(s) selecionado(s)`;
+}
+
+function relSelectAll()  { document.querySelectorAll('.rel-proj-cb').forEach(cb => cb.checked = true);  _updateRelCount(); }
+function relSelectNone() { document.querySelectorAll('.rel-proj-cb').forEach(cb => cb.checked = false); _updateRelCount(); }
+
+function _getRelOptions() {
+  const ids = [...document.querySelectorAll('.rel-proj-cb:checked')].map(cb => parseInt(cb.value));
+  return {
+    projectIds:  ids,
+    incOverview: document.getElementById('rel-inc-overview')?.checked,
+    incTasks:    document.getElementById('rel-inc-tasks')?.checked,
+    incUpdates:  document.getElementById('rel-inc-updates')?.checked,
+    incRisks:    document.getElementById('rel-inc-risks')?.checked,
+    incFinancial:document.getElementById('rel-inc-financial')?.checked,
+    incKpis:     document.getElementById('rel-inc-kpis')?.checked,
+    dateStart:   document.getElementById('rel-date-start')?.value || '',
+    dateEnd:     document.getElementById('rel-date-end')?.value   || '',
+  };
+}
+
+function relPreview() {
+  const opts = _getRelOptions();
+  if (!opts.projectIds.length) { toast('Selecione ao menos um projeto', 'warn'); return; }
+  _buildRelReport(opts, true);
+}
+
+async function relExportPDF() {
+  const opts = _getRelOptions();
+  if (!opts.projectIds.length) { toast('Selecione ao menos um projeto', 'warn'); return; }
+  toast('Gerando relatório…', 'info');
+  await _buildRelReport(opts, false);
+}
+
+async function _buildRelReport(opts, preview) {
+  const fmtR = v => 'R$ ' + parseFloat(v||0).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+  const fmtD = v => {
+    if (!v) return '—';
+    const s = String(v).replace(' ','T').split('T')[0];
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return '—';
+    const [y,m,d] = s.split('-'); return `${d}/${m}/${y}`;
+  };
+  const pColor = v => { const n = parseFloat(v||0); return n>=80?'#2E7D32':n>=40?'#E65100':'#C62828'; };
+  const SC = { 'Em andamento':'#1565C0','Concluído':'#2E7D32','Atrasado':'#C62828','Planejado':'#546E7A','Em espera':'#6A1B9A' };
+  const nowStr = new Date().toLocaleDateString('pt-BR', { day:'2-digit', month:'long', year:'numeric' });
+
+  // Carrega dados de cada projeto selecionado
+  const projects = await Promise.all(opts.projectIds.map(async id => {
+    try {
+      const p = await GET('/projects/' + id);
+      if (opts.incUpdates && p.tasks?.length) {
+        await Promise.all(p.tasks.map(async t => {
+          try { t._updates = await GET('/tasks/' + t.id + '/updates'); } catch { t._updates = []; }
+        }));
+      }
+      if (opts.incKpis) {
+        try { p._kpis = await GET('/projects/' + id + '/kpis'); } catch { p._kpis = {}; }
+      }
+      return p;
+    } catch { return null; }
+  }));
+
+  const validProjects = projects.filter(Boolean);
+  if (!validProjects.length) { toast('Nenhum dado encontrado', 'error'); return; }
+
+  function eapKey(code) {
+    if (!code) return [9999];
+    return String(code).split('.').map(n => parseInt(n,10)||0);
+  }
+  function sortEAP(tasks) {
+    return [...tasks].sort((a,b) => {
+      const ka=eapKey(a.eap_code), kb=eapKey(b.eap_code);
+      for(let i=0;i<Math.max(ka.length,kb.length);i++){const d=(ka[i]||0)-(kb[i]||0);if(d)return d;}
+      return 0;
+    });
+  }
+
+  // ── Monta HTML do relatório ──────────────────────────────────────
+  let body = '';
+
+  validProjects.forEach((p, pi) => {
+    const tasks = sortEAP(p.tasks || []);
+    const sc    = SC[p.status] || '#546E7A';
+    const prog  = parseFloat(p.progress||0);
+
+    body += `
+    <div class="proj-block" style="page-break-inside:avoid;margin-bottom:40px">
+      <!-- Cabeçalho do projeto -->
+      <div style="background:linear-gradient(135deg,#1B5E20,#2E7D32);border-radius:10px;padding:18px 22px;margin-bottom:18px;color:#fff">
+        <div style="font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#A5D6A7;margin-bottom:4px">${p.area||'—'}</div>
+        <div style="font-size:18px;font-weight:800;margin-bottom:8px">${p.code} — ${p.name}</div>
+        <div style="display:flex;flex-wrap:wrap;gap:16px;font-size:12px;color:rgba(255,255,255,.85)">
+          <span>👤 ${p.manager_name||'—'}</span>
+          <span>📅 ${fmtD(p.start_date)} → ${fmtD(p.end_date)}</span>
+          <span>📦 ${p.status}</span>
+        </div>
+        <div style="margin-top:14px;background:rgba(255,255,255,.15);border-radius:6px;height:8px;overflow:hidden">
+          <div style="background:#A5D6A7;height:100%;width:${prog}%;border-radius:6px"></div>
+        </div>
+        <div style="font-size:11px;color:#A5D6A7;margin-top:4px">${prog.toFixed(1)}% concluído</div>
+      </div>`;
+
+    // Visão geral
+    if (opts.incOverview && p.description) {
+      body += `<div class="section-block"><div class="sec-title">📋 Visão Geral</div>
+        <p style="font-size:13px;color:#444;line-height:1.6">${p.description}</p></div>`;
+    }
+
+    // Financeiro
+    if (opts.incFinancial) {
+      const budget = parseFloat(p.budget||0), actual = parseFloat(p.actual_cost||0);
+      const diff   = budget - actual;
+      body += `<div class="section-block"><div class="sec-title">💰 Financeiro / ROI</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
+          <div class="kpi-box"><div class="kpi-label">ROI Estimado</div><div class="kpi-val">${fmtR(budget)}</div></div>
+          <div class="kpi-box"><div class="kpi-label">ROI Realizado</div><div class="kpi-val">${fmtR(actual)}</div></div>
+          <div class="kpi-box"><div class="kpi-label">Saldo</div><div class="kpi-val" style="color:${diff>=0?'#2E7D32':'#C62828'}">${diff>=0?'+':''}${fmtR(diff)}</div></div>
+        </div></div>`;
+    }
+
+    // KPIs
+    if (opts.incKpis && p._kpis) {
+      const k = p._kpis;
+      body += `<div class="section-block"><div class="sec-title">📊 KPIs / EVM</div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">
+          <div class="kpi-box"><div class="kpi-label">CPI</div><div class="kpi-val" style="color:${parseFloat(k.CPI||0)>=1?'#2E7D32':'#C62828'}">${parseFloat(k.CPI||0).toFixed(2)}</div></div>
+          <div class="kpi-box"><div class="kpi-label">SPI</div><div class="kpi-val" style="color:${parseFloat(k.SPI||0)>=1?'#2E7D32':'#C62828'}">${parseFloat(k.SPI||0).toFixed(2)}</div></div>
+          <div class="kpi-box"><div class="kpi-label">EV</div><div class="kpi-val">${fmtR(k.EV)}</div></div>
+          <div class="kpi-box"><div class="kpi-label">CV</div><div class="kpi-val" style="color:${parseFloat(k.CV||0)>=0?'#2E7D32':'#C62828'}">${fmtR(k.CV)}</div></div>
+        </div></div>`;
+    }
+
+    // EAP / Tarefas
+    if (opts.incTasks && tasks.length) {
+      body += `<div class="section-block"><div class="sec-title">✅ Ações e Tarefas (EAP)</div>
+        <table class="rep-table">
+          <thead><tr><th>Código</th><th>Tarefa</th><th>Responsável</th><th>Status</th><th>Progresso</th><th>Prazo</th></tr></thead>
+          <tbody>`;
+      tasks.forEach(t => {
+        const tprog = parseFloat(t.progress||0);
+        const indent = (Math.max(0,(t.eap_level||1)-1)*16);
+        body += `<tr>
+          <td style="font-weight:700;color:#2E7D32;white-space:nowrap">${t.eap_code||'—'}</td>
+          <td style="padding-left:${indent}px;font-weight:${t.eap_level===1?'700':'400'}">${t.name}</td>
+          <td style="white-space:nowrap">${t.assignee_name||'—'}</td>
+          <td><span style="background:${SC[t.status]||'#546E7A'}22;color:${SC[t.status]||'#546E7A'};padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600;white-space:nowrap">${t.status}</span></td>
+          <td style="white-space:nowrap">
+            <div style="display:flex;align-items:center;gap:6px">
+              <div style="background:#E8F5E9;border-radius:3px;height:6px;width:60px;overflow:hidden"><div style="background:${pColor(tprog)};height:100%;width:${tprog}%"></div></div>
+              <span style="font-size:11px;font-weight:600">${tprog.toFixed(0)}%</span>
+            </div>
+          </td>
+          <td style="white-space:nowrap">${fmtD(t.end_date)}</td>
+        </tr>`;
+
+        // Atividades semanais da tarefa
+        if (opts.incUpdates && t._updates?.length) {
+          t._updates.forEach(u => {
+            body += `<tr style="background:#F9FBF9">
+              <td colspan="6" style="padding:8px 12px 8px ${indent+20}px">
+                <div style="font-size:11px;color:#555;border-left:3px solid #A5D6A7;padding-left:10px">
+                  <span style="font-weight:700;color:#2E7D32">📅 Semana ${fmtD(u.week_ref)}</span>
+                  ${u.progress!=null?`<span style="margin-left:8px;font-size:10px;background:#E8F5E9;color:#2E7D32;padding:1px 6px;border-radius:10px">${parseFloat(u.progress).toFixed(0)}%</span>`:''}
+                  <div style="margin-top:4px"><strong>Executado:</strong> ${u.executed||'—'}</div>
+                  ${u.blockers?`<div style="margin-top:2px;color:#C62828"><strong>Bloqueio:</strong> ${u.blockers}</div>`:''}
+                  ${u.next_steps?`<div style="margin-top:2px;color:#1565C0"><strong>Próximos passos:</strong> ${u.next_steps}</div>`:''}
+                </div>
+              </td>
+            </tr>`;
+          });
+        }
+      });
+      body += `</tbody></table></div>`;
+    }
+
+    // Riscos
+    if (opts.incRisks && p.risks?.length) {
+      body += `<div class="section-block"><div class="sec-title">⚑ Riscos</div>
+        <table class="rep-table">
+          <thead><tr><th>Risco</th><th>Probabilidade</th><th>Impacto</th><th>Severidade</th><th>Status</th></tr></thead>
+          <tbody>${p.risks.map(r => `<tr>
+            <td>${r.description||r.name||'—'}</td>
+            <td>${r.probability||'—'}</td>
+            <td>${r.impact||'—'}</td>
+            <td style="font-weight:700;color:${r.severity>=20?'#C62828':r.severity>=12?'#E65100':'#2E7D32'}">${r.severity||'—'}</td>
+            <td>${r.status||'—'}</td>
+          </tr>`).join('')}</tbody>
+        </table></div>`;
+    }
+
+    body += `</div>`; // fim proj-block
+    if (pi < validProjects.length - 1) body += `<div style="page-break-after:always"></div>`;
+  });
+
+  // ── HTML completo ────────────────────────────────────────────────
+  const user = Auth.user || {};
+  const periodLabel = opts.dateStart || opts.dateEnd
+    ? `Período: ${fmtD(opts.dateStart) || 'início'} a ${fmtD(opts.dateEnd) || 'hoje'}`
+    : 'Todos os períodos';
+
+  const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
+  <title>Relatório PMO</title>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family:'Segoe UI',Arial,sans-serif; font-size:13px; color:#222; background:#fff; padding:32px; }
+    .report-header { display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #2E7D32;padding-bottom:16px;margin-bottom:28px }
+    .report-header h1 { font-size:22px;font-weight:800;color:#1B5E20 }
+    .report-header .meta { font-size:11px;color:#666;text-align:right;line-height:1.7 }
+    .proj-block { margin-bottom:40px }
+    .section-block { margin-bottom:18px }
+    .sec-title { font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#2E7D32;margin-bottom:10px;display:flex;align-items:center;gap:6px }
+    .rep-table { width:100%;border-collapse:collapse;font-size:12px }
+    .rep-table th { background:#F1F8F1;color:#1B5E20;font-weight:700;padding:7px 10px;text-align:left;border-bottom:2px solid #C8E6C9;font-size:10px;text-transform:uppercase;letter-spacing:.5px }
+    .rep-table td { padding:7px 10px;border-bottom:1px solid #E8F5E9;vertical-align:top }
+    .rep-table tr:hover td { background:#FAFFF9 }
+    .kpi-box { background:#F1F8F1;border-radius:8px;padding:10px 14px;text-align:center }
+    .kpi-label { font-size:10px;font-weight:700;text-transform:uppercase;color:#555;letter-spacing:.5px;margin-bottom:4px }
+    .kpi-val { font-size:16px;font-weight:800;color:#1B5E20 }
+    @media print { body { padding:16px } .proj-block { page-break-inside:avoid } }
+  </style></head><body>
+  <div class="report-header">
+    <div>
+      <div style="font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#A5D6A7;margin-bottom:4px">PMO Suite</div>
+      <h1>Relatório de Portfólio</h1>
+      <div style="font-size:12px;color:#666;margin-top:4px">${periodLabel}</div>
+    </div>
+    <div class="meta">
+      Gerado em ${nowStr}<br>
+      Por: ${user.name || 'Usuário'}<br>
+      ${validProjects.length} projeto(s)
+    </div>
+  </div>
+  ${body}
+  </body></html>`;
+
+  const win = window.open('', '_blank', 'width=1100,height=800');
+  if (!win) { toast('Permita pop-ups para gerar o relatório', 'warn'); return; }
+  win.document.write(html);
+  win.document.close();
+  if (!preview) {
+    setTimeout(() => { win.focus(); win.print(); }, 600);
+  }
+}
+
 /* ═════════════════════════ PROJECTS ═════════════════════════════ */
 let _projects = [];
+let _evolutionUpdates  = [];
+let _evolutionProjects = [];
 
 async function loadProjects() {
   const tbody = document.getElementById('projects-tbody');
@@ -1268,6 +1577,7 @@ Object.assign(sectionLoaders, {
   kpis:         loadKpis,
   bi:           loadBi,
   integrations: loadIntegrations,
+  relatorio:    loadRelatorio,
 });
 
 
