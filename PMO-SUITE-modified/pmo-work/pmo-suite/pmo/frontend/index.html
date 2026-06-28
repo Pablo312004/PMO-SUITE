@@ -54,12 +54,6 @@
       <div class="nav-section">Portfólio</div>
       <div class="nav-item" onclick="showSection('projects',this)"><span class="nav-icon">◈</span><span class="nav-text">Projetos</span></div>
       <div class="nav-item" onclick="showSection('tasks',this)"><span class="nav-icon">◉</span><span class="nav-text">Tarefas</span></div>
-      <div class="nav-item" onclick="showSection('risks',this)"><span class="nav-icon">⚑</span><span class="nav-text">Riscos</span></div>
-      <div class="nav-item" onclick="showSection('resources',this)"><span class="nav-icon">◎</span><span class="nav-text">Recursos</span></div>
-      <div class="nav-section">Análise</div>
-      <div class="nav-item" onclick="showSection('gantt',this)"><span class="nav-icon">≡</span><span class="nav-text">Cronograma</span></div>
-      <div class="nav-item" onclick="showSection('kpis',this)"><span class="nav-icon">◐</span><span class="nav-text">KPIs / EVM</span></div>
-      <div class="nav-item" onclick="showSection('bi',this)"><span class="nav-icon">◑</span><span class="nav-text">Business Intelligence</span></div>
       <div class="nav-section">Sistema</div>
       <div class="nav-item" onclick="showSection('relatorio',this)"><span class="nav-icon">📄</span><span class="nav-text">Relatório</span></div>
       <div class="nav-item" onclick="showSection('integrations',this)"><span class="nav-icon">⚙</span><span class="nav-text">Integrações</span></div>
@@ -398,91 +392,122 @@
           <div><div class="page-title">📄 Relatório Personalizado</div><div class="page-desc">Monte e exporte seu relatório em PDF</div></div>
         </div>
 
-        <!-- Passo 1: Filtros -->
-        <div class="card" style="margin-bottom:16px">
-          <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--g700);margin-bottom:16px;display:flex;align-items:center;gap:8px">
-            <div style="width:3px;height:14px;background:var(--g700);border-radius:2px"></div>1. Selecione o escopo
+        <!-- Passo 1 -->
+        <div class="card" style="margin-bottom:16px;padding:0;overflow:hidden">
+          <div style="background:linear-gradient(135deg,#1B5E20,#2E7D32);padding:16px 22px;display:flex;align-items:center;gap:10px">
+            <span style="background:rgba(255,255,255,.2);color:#fff;font-size:11px;font-weight:800;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center">1</span>
+            <span style="font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#A5D6A7">Selecione o Escopo</span>
           </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px">
-            <div>
-              <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text2);margin-bottom:8px">Área</label>
-              <select id="rel-filter-area" class="input" onchange="relLoadProjects()" style="width:100%">
-                <option value="">Todas as áreas</option>
-                <option>T.I</option><option>Financeiro</option><option>Controladoria</option>
-                <option>Fiscal</option><option>RH/DP</option><option>Compras</option>
-                <option>Suprimentos MP</option><option>Qualidade/Laboratório</option><option>Produção</option>
-              </select>
-            </div>
-            <div>
-              <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text2);margin-bottom:8px">Status do Projeto</label>
-              <select id="rel-filter-status" class="input" onchange="relLoadProjects()" style="width:100%">
-                <option value="">Todos os status</option>
-                <option>Em andamento</option><option>Planejado</option>
-                <option>Concluído</option><option>Atrasado</option><option>Em espera</option>
-              </select>
-            </div>
-            <div>
-              <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text2);margin-bottom:8px">Período (opcional)</label>
-              <div style="display:flex;gap:6px">
-                <input type="date" id="rel-date-start" class="input" style="width:50%" placeholder="Início">
-                <input type="date" id="rel-date-end" class="input" style="width:50%" placeholder="Fim">
+          <div style="padding:20px 22px">
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px">
+              <div>
+                <label style="display:block;font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text2);margin-bottom:8px">🏢 Área</label>
+                <select id="rel-filter-area" onchange="relLoadProjects()"
+                  style="width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:10px;font-size:13px;background:var(--card);color:var(--text);outline:none;transition:border .15s"
+                  onfocus="this.style.borderColor='var(--g600)'" onblur="this.style.borderColor='var(--border)'">
+                  <option value="">Todas as áreas</option>
+                  <option>T.I</option><option>Financeiro</option><option>Controladoria</option>
+                  <option>Fiscal</option><option>RH/DP</option><option>Compras</option>
+                  <option>Suprimentos MP</option><option>Qualidade/Laboratório</option><option>Produção</option>
+                </select>
+              </div>
+              <div>
+                <label style="display:block;font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text2);margin-bottom:8px">🔖 Status do Projeto</label>
+                <select id="rel-filter-status" onchange="relLoadProjects()"
+                  style="width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:10px;font-size:13px;background:var(--card);color:var(--text);outline:none;transition:border .15s"
+                  onfocus="this.style.borderColor='var(--g600)'" onblur="this.style.borderColor='var(--border)'">
+                  <option value="">Todos os status</option>
+                  <option>Em andamento</option><option>Planejado</option>
+                  <option>Concluído</option><option>Atrasado</option><option>Em espera</option>
+                </select>
+              </div>
+              <div>
+                <label style="display:block;font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text2);margin-bottom:8px">📅 Período (opcional)</label>
+                <div style="display:flex;gap:6px">
+                  <input type="date" id="rel-date-start"
+                    style="width:50%;padding:12px 10px;border:1.5px solid var(--border);border-radius:10px;font-size:12px;background:var(--card);color:var(--text);outline:none;transition:border .15s"
+                    onfocus="this.style.borderColor='var(--g600)'" onblur="this.style.borderColor='var(--border)'">
+                  <input type="date" id="rel-date-end"
+                    style="width:50%;padding:12px 10px;border:1.5px solid var(--border);border-radius:10px;font-size:12px;background:var(--card);color:var(--text);outline:none;transition:border .15s"
+                    onfocus="this.style.borderColor='var(--g600)'" onblur="this.style.borderColor='var(--border)'">
+                </div>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- Passo 2: Seleção de projetos -->
-        <div class="card" style="margin-bottom:16px">
-          <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#1565C0;margin-bottom:16px;display:flex;align-items:center;gap:8px">
-            <div style="width:3px;height:14px;background:#1565C0;border-radius:2px"></div>2. Escolha os projetos
+        <!-- Passo 2 -->
+        <div class="card" style="margin-bottom:16px;padding:0;overflow:hidden">
+          <div style="background:linear-gradient(135deg,#0D47A1,#1565C0);padding:16px 22px;display:flex;align-items:center;justify-content:space-between">
+            <div style="display:flex;align-items:center;gap:10px">
+              <span style="background:rgba(255,255,255,.2);color:#fff;font-size:11px;font-weight:800;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center">2</span>
+              <span style="font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#BBDEFB">Escolha os Projetos</span>
+            </div>
+            <span id="rel-proj-count" style="font-size:11px;color:rgba(255,255,255,.7)"></span>
           </div>
-          <div style="display:flex;gap:10px;margin-bottom:12px">
-            <button class="btn btn-secondary" style="font-size:12px" onclick="relSelectAll()">✅ Selecionar todos</button>
-            <button class="btn btn-secondary" style="font-size:12px" onclick="relSelectNone()">☐ Limpar seleção</button>
-            <span id="rel-proj-count" style="font-size:12px;color:var(--text2);align-self:center;margin-left:auto"></span>
-          </div>
-          <div id="rel-projects-list" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px;max-height:300px;overflow-y:auto">
-            <div style="text-align:center;color:var(--text3);padding:30px;grid-column:1/-1">Carregando projetos…</div>
-          </div>
-        </div>
-
-        <!-- Passo 3: Conteúdo do relatório -->
-        <div class="card" style="margin-bottom:16px">
-          <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#E65100;margin-bottom:16px;display:flex;align-items:center;gap:8px">
-            <div style="width:3px;height:14px;background:#E65100;border-radius:2px"></div>3. O que incluir no relatório
-          </div>
-          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px">
-            <label style="display:flex;align-items:flex-start;gap:10px;padding:12px 14px;background:var(--subtle);border:1.5px solid var(--border);border-radius:10px;cursor:pointer">
-              <input type="checkbox" id="rel-inc-overview" checked style="margin-top:2px;accent-color:var(--g700)">
-              <div><div style="font-size:13px;font-weight:600">📋 Visão Geral do Projeto</div><div style="font-size:11px;color:var(--text2);margin-top:2px">Dados gerais, gestor, datas, status e progresso</div></div>
-            </label>
-            <label style="display:flex;align-items:flex-start;gap:10px;padding:12px 14px;background:var(--subtle);border:1.5px solid var(--border);border-radius:10px;cursor:pointer">
-              <input type="checkbox" id="rel-inc-tasks" checked style="margin-top:2px;accent-color:var(--g700)">
-              <div><div style="font-size:13px;font-weight:600">✅ Ações e Tarefas (EAP)</div><div style="font-size:11px;color:var(--text2);margin-top:2px">Estrutura analítica com progresso por tarefa</div></div>
-            </label>
-            <label style="display:flex;align-items:flex-start;gap:10px;padding:12px 14px;background:var(--subtle);border:1.5px solid var(--border);border-radius:10px;cursor:pointer">
-              <input type="checkbox" id="rel-inc-updates" checked style="margin-top:2px;accent-color:var(--g700)">
-              <div><div style="font-size:13px;font-weight:600">📅 Atividades Semanais</div><div style="font-size:11px;color:var(--text2);margin-top:2px">Registros de execução, bloqueios e próximos passos</div></div>
-            </label>
-            <label style="display:flex;align-items:flex-start;gap:10px;padding:12px 14px;background:var(--subtle);border:1.5px solid var(--border);border-radius:10px;cursor:pointer">
-              <input type="checkbox" id="rel-inc-risks" style="margin-top:2px;accent-color:var(--g700)">
-              <div><div style="font-size:13px;font-weight:600">⚑ Riscos</div><div style="font-size:11px;color:var(--text2);margin-top:2px">Riscos ativos associados ao projeto</div></div>
-            </label>
-            <label style="display:flex;align-items:flex-start;gap:10px;padding:12px 14px;background:var(--subtle);border:1.5px solid var(--border);border-radius:10px;cursor:pointer">
-              <input type="checkbox" id="rel-inc-financial" style="margin-top:2px;accent-color:var(--g700)">
-              <div><div style="font-size:13px;font-weight:600">💰 Financeiro / ROI</div><div style="font-size:11px;color:var(--text2);margin-top:2px">Orçado vs. realizado por projeto</div></div>
-            </label>
-            <label style="display:flex;align-items:flex-start;gap:10px;padding:12px 14px;background:var(--subtle);border:1.5px solid var(--border);border-radius:10px;cursor:pointer">
-              <input type="checkbox" id="rel-inc-kpis" style="margin-top:2px;accent-color:var(--g700)">
-              <div><div style="font-size:13px;font-weight:600">📊 KPIs / EVM</div><div style="font-size:11px;color:var(--text2);margin-top:2px">Indicadores de valor agregado e CPI/SPI</div></div>
-            </label>
+          <div style="padding:16px 22px">
+            <div style="display:flex;gap:8px;margin-bottom:14px">
+              <button onclick="relSelectAll()"
+                style="padding:8px 16px;border:1.5px solid var(--g600);border-radius:8px;background:var(--g50);color:var(--g700);font-size:12px;font-weight:600;cursor:pointer">✅ Selecionar todos</button>
+              <button onclick="relSelectNone()"
+                style="padding:8px 16px;border:1.5px solid var(--border);border-radius:8px;background:var(--card);color:var(--text2);font-size:12px;font-weight:600;cursor:pointer">☐ Limpar seleção</button>
+            </div>
+            <div id="rel-projects-list" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px;max-height:280px;overflow-y:auto">
+              <div style="text-align:center;color:var(--text3);padding:30px;grid-column:1/-1">Carregando projetos…</div>
+            </div>
           </div>
         </div>
 
-        <!-- Ação -->
-        <div style="display:flex;justify-content:flex-end;gap:12px">
-          <button class="btn btn-secondary" onclick="relPreview()">👁 Pré-visualizar</button>
-          <button class="btn btn-primary" style="background:linear-gradient(135deg,#1B5E20,#2E7D32);border:none;padding:11px 28px;font-size:14px;font-weight:600;display:flex;align-items:center;gap:8px" onclick="relExportPDF()">
+        <!-- Passo 3 -->
+        <div class="card" style="margin-bottom:20px;padding:0;overflow:hidden">
+          <div style="background:linear-gradient(135deg,#BF360C,#E65100);padding:16px 22px;display:flex;align-items:center;gap:10px">
+            <span style="background:rgba(255,255,255,.2);color:#fff;font-size:11px;font-weight:800;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center">3</span>
+            <span style="font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#FFCCBC">O que incluir no relatório</span>
+          </div>
+          <div style="padding:20px 22px;display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px">
+            <label style="display:flex;align-items:flex-start;gap:10px;padding:14px;background:var(--subtle);border:1.5px solid var(--border);border-radius:10px;cursor:pointer;transition:border .15s"
+              onmouseover="this.style.borderColor='var(--g600)'" onmouseout="this.style.borderColor='var(--border)'">
+              <input type="checkbox" id="rel-inc-overview" checked style="margin-top:2px;accent-color:var(--g700);flex-shrink:0">
+              <div><div style="font-size:13px;font-weight:600;color:var(--text)">📋 Visão Geral</div><div style="font-size:11px;color:var(--text2);margin-top:3px;line-height:1.4">Dados gerais, gestor, datas, status e progresso</div></div>
+            </label>
+            <label style="display:flex;align-items:flex-start;gap:10px;padding:14px;background:var(--subtle);border:1.5px solid var(--border);border-radius:10px;cursor:pointer;transition:border .15s"
+              onmouseover="this.style.borderColor='var(--g600)'" onmouseout="this.style.borderColor='var(--border)'">
+              <input type="checkbox" id="rel-inc-tasks" checked style="margin-top:2px;accent-color:var(--g700);flex-shrink:0">
+              <div><div style="font-size:13px;font-weight:600;color:var(--text)">✅ Ações e Tarefas</div><div style="font-size:11px;color:var(--text2);margin-top:3px;line-height:1.4">Estrutura EAP com progresso por tarefa</div></div>
+            </label>
+            <label style="display:flex;align-items:flex-start;gap:10px;padding:14px;background:var(--subtle);border:1.5px solid var(--border);border-radius:10px;cursor:pointer;transition:border .15s"
+              onmouseover="this.style.borderColor='var(--g600)'" onmouseout="this.style.borderColor='var(--border)'">
+              <input type="checkbox" id="rel-inc-updates" checked style="margin-top:2px;accent-color:var(--g700);flex-shrink:0">
+              <div><div style="font-size:13px;font-weight:600;color:var(--text)">📅 Atividades Semanais</div><div style="font-size:11px;color:var(--text2);margin-top:3px;line-height:1.4">Execução, bloqueios e próximos passos</div></div>
+            </label>
+            <label style="display:flex;align-items:flex-start;gap:10px;padding:14px;background:var(--subtle);border:1.5px solid var(--border);border-radius:10px;cursor:pointer;transition:border .15s"
+              onmouseover="this.style.borderColor='var(--g600)'" onmouseout="this.style.borderColor='var(--border)'">
+              <input type="checkbox" id="rel-inc-risks" style="margin-top:2px;accent-color:var(--g700);flex-shrink:0">
+              <div><div style="font-size:13px;font-weight:600;color:var(--text)">⚑ Riscos</div><div style="font-size:11px;color:var(--text2);margin-top:3px;line-height:1.4">Riscos ativos associados ao projeto</div></div>
+            </label>
+            <label style="display:flex;align-items:flex-start;gap:10px;padding:14px;background:var(--subtle);border:1.5px solid var(--border);border-radius:10px;cursor:pointer;transition:border .15s"
+              onmouseover="this.style.borderColor='var(--g600)'" onmouseout="this.style.borderColor='var(--border)'">
+              <input type="checkbox" id="rel-inc-financial" style="margin-top:2px;accent-color:var(--g700);flex-shrink:0">
+              <div><div style="font-size:13px;font-weight:600;color:var(--text)">💰 ROI / Financeiro</div><div style="font-size:11px;color:var(--text2);margin-top:3px;line-height:1.4">Estimado vs. realizado por projeto</div></div>
+            </label>
+            <label style="display:flex;align-items:flex-start;gap:10px;padding:14px;background:var(--subtle);border:1.5px solid var(--border);border-radius:10px;cursor:pointer;transition:border .15s"
+              onmouseover="this.style.borderColor='var(--g600)'" onmouseout="this.style.borderColor='var(--border)'">
+              <input type="checkbox" id="rel-inc-kpis" style="margin-top:2px;accent-color:var(--g700);flex-shrink:0">
+              <div><div style="font-size:13px;font-weight:600;color:var(--text)">📊 KPIs / EVM</div><div style="font-size:11px;color:var(--text2);margin-top:3px;line-height:1.4">CPI, SPI, EV e variações</div></div>
+            </label>
+          </div>
+        </div>
+
+        <!-- Botões de ação -->
+        <div style="display:flex;justify-content:flex-end;gap:10px">
+          <button onclick="relPreview()"
+            style="padding:12px 24px;border:1.5px solid var(--border);border-radius:10px;background:var(--card);color:var(--text);font-size:14px;font-weight:600;cursor:pointer;transition:border .15s"
+            onmouseover="this.style.borderColor='var(--g600)'" onmouseout="this.style.borderColor='var(--border)'">
+            👁 Pré-visualizar
+          </button>
+          <button onclick="relExportPDF()"
+            style="padding:12px 28px;background:linear-gradient(135deg,#1B5E20,#2E7D32);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;transition:opacity .15s"
+            onmouseover="this.style.opacity='.9'" onmouseout="this.style.opacity='1'">
             🖨 Gerar PDF
           </button>
         </div>
@@ -670,7 +695,7 @@
 </div></div>
 <!-- Create/Edit Task -->
 <div class="modal-overlay" id="modal-task">
-  <div class="modal modal-lg" style="max-width:700px;overflow:hidden;border-radius:16px">
+  <div class="modal modal-lg" style="max-width:680px;overflow:hidden;border-radius:16px">
 
     <!-- Header -->
     <div style="background:linear-gradient(135deg,#1B5E20,#2E7D32);padding:24px 28px;display:flex;justify-content:space-between;align-items:flex-start">
@@ -688,24 +713,29 @@
 
       <!-- ── Identificação ── -->
       <div style="padding:24px 28px 0">
-        <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--g700);margin-bottom:16px;display:flex;align-items:center;gap:8px">
-          <div style="width:3px;height:14px;background:var(--g700);border-radius:2px"></div>Identificação
+        <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--g700);margin-bottom:16px;padding-bottom:8px;border-bottom:2px solid var(--g50)">
+          🗂 Identificação
         </div>
 
-        <div style="margin-bottom:14px">
-          <label style="display:block;font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text2);margin-bottom:8px">Projeto *</label>
-          <select id="task-proj-id" class="input" required style="width:100%"></select>
+        <div style="margin-bottom:16px">
+          <label style="display:block;font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text2);margin-bottom:8px">Projeto <span style="color:var(--danger)">*</span></label>
+          <select id="task-proj-id" required style="width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:10px;font-size:14px;background:var(--card);color:var(--text);outline:none;transition:border .15s"
+            onfocus="this.style.borderColor='var(--g600)'" onblur="this.style.borderColor='var(--border)'"></select>
         </div>
 
-        <div style="margin-bottom:14px">
-          <label style="display:block;font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text2);margin-bottom:8px">Nome da Tarefa *</label>
-          <input id="task-name" class="input" required placeholder="Descreva a tarefa" oninput="taskAutoSave()" style="width:100%">
+        <div style="margin-bottom:16px">
+          <label style="display:block;font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text2);margin-bottom:8px">Nome da Tarefa <span style="color:var(--danger)">*</span></label>
+          <input id="task-name" required placeholder="Descreva a tarefa" oninput="taskAutoSave()"
+            style="width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:10px;font-size:14px;background:var(--card);color:var(--text);outline:none;transition:border .15s"
+            onfocus="this.style.borderColor='var(--g600)'" onblur="this.style.borderColor='var(--border)'">
         </div>
 
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px">
           <div>
             <label style="display:block;font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text2);margin-bottom:8px">Nível EAP</label>
-            <select id="task-eap-level" class="input" onchange="onEapLevelChange();taskAutoSave()" style="width:100%">
+            <select id="task-eap-level" onchange="onEapLevelChange();taskAutoSave()"
+              style="width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:10px;font-size:13px;background:var(--card);color:var(--text);outline:none;transition:border .15s"
+              onfocus="this.style.borderColor='var(--g600)'" onblur="this.style.borderColor='var(--border)'">
               <option value="1">Nível 1 — Objetivo Estratégico</option>
               <option value="2">Nível 2 — Ação</option>
               <option value="3">Nível 3 — Sub-ação</option>
@@ -713,45 +743,55 @@
           </div>
           <div>
             <label style="display:block;font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text2);margin-bottom:8px">Código EAP</label>
-            <input id="task-eap-code" class="input" placeholder="Ex: 1.1" oninput="taskAutoSave()" style="width:100%">
+            <input id="task-eap-code" placeholder="Ex: 1.1" oninput="taskAutoSave()"
+              style="width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:10px;font-size:14px;background:var(--card);color:var(--text);outline:none;transition:border .15s"
+              onfocus="this.style.borderColor='var(--g600)'" onblur="this.style.borderColor='var(--border)'">
           </div>
         </div>
 
         <div style="margin-bottom:4px">
           <label style="display:block;font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text2);margin-bottom:8px">Descrição</label>
-          <textarea id="task-description" class="input" rows="3" oninput="taskAutoSave()"
+          <textarea id="task-description" rows="3" oninput="taskAutoSave()"
             onmouseup="event.stopPropagation()" onmousedown="event.stopPropagation()"
-            style="width:100%;resize:vertical;min-height:70px" placeholder="Contexto e detalhes da tarefa…"></textarea>
+            placeholder="Contexto e detalhes da tarefa…"
+            style="width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:10px;font-size:14px;background:var(--card);color:var(--text);resize:vertical;min-height:80px;outline:none;font-family:inherit;transition:border .15s"
+            onfocus="this.style.borderColor='var(--g600)'" onblur="this.style.borderColor='var(--border)'"></textarea>
         </div>
       </div>
 
-      <div style="height:1px;background:var(--border);margin:20px 28px"></div>
-
       <!-- ── Planejamento ── -->
-      <div style="padding:0 28px">
-        <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#1565C0;margin-bottom:16px;display:flex;align-items:center;gap:8px">
-          <div style="width:3px;height:14px;background:#1565C0;border-radius:2px"></div>Planejamento
+      <div style="padding:20px 28px 0">
+        <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#1565C0;margin-bottom:16px;padding-bottom:8px;border-bottom:2px solid #E3F2FD">
+          📅 Planejamento
         </div>
 
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px">
           <div>
-            <label style="display:block;font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text2);margin-bottom:8px">📅 Data Início</label>
-            <input id="task-start-date" class="input" type="date" onchange="taskAutoSave()" style="width:100%">
+            <label style="display:block;font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text2);margin-bottom:8px">Data Início</label>
+            <input id="task-start-date" type="date" onchange="taskAutoSave()"
+              style="width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:10px;font-size:14px;background:var(--card);color:var(--text);outline:none;transition:border .15s"
+              onfocus="this.style.borderColor='#1565C0'" onblur="this.style.borderColor='var(--border)'">
           </div>
           <div>
-            <label style="display:block;font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text2);margin-bottom:8px">📅 Data Fim</label>
-            <input id="task-end-date" class="input" type="date" onchange="taskAutoSave()" style="width:100%">
+            <label style="display:block;font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text2);margin-bottom:8px">Data Fim</label>
+            <input id="task-end-date" type="date" onchange="taskAutoSave()"
+              style="width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:10px;font-size:14px;background:var(--card);color:var(--text);outline:none;transition:border .15s"
+              onfocus="this.style.borderColor='#1565C0'" onblur="this.style.borderColor='var(--border)'">
           </div>
         </div>
 
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:4px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px">
           <div>
             <label style="display:block;font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text2);margin-bottom:8px">👤 Responsável</label>
-            <select id="task-assignee" class="input" onchange="taskAutoSave()" style="width:100%"></select>
+            <select id="task-assignee" onchange="taskAutoSave()"
+              style="width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:10px;font-size:13px;background:var(--card);color:var(--text);outline:none;transition:border .15s"
+              onfocus="this.style.borderColor='var(--g600)'" onblur="this.style.borderColor='var(--border)'"></select>
           </div>
           <div>
             <label style="display:block;font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text2);margin-bottom:8px">🔖 Status</label>
-            <select id="task-status" class="input" onchange="taskAutoSave()" style="width:100%">
+            <select id="task-status" onchange="taskAutoSave()"
+              style="width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:10px;font-size:13px;background:var(--card);color:var(--text);outline:none;transition:border .15s"
+              onfocus="this.style.borderColor='var(--g600)'" onblur="this.style.borderColor='var(--border)'">
               <option>Planejado</option>
               <option>Em andamento</option>
               <option>Concluído</option>
@@ -761,53 +801,51 @@
           </div>
         </div>
 
-        <div style="margin-top:14px">
-          <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:12px 16px;background:var(--g50);border:1.5px solid rgba(46,125,50,.2);border-radius:10px">
-            <input id="task-milestone" type="checkbox" style="width:16px;height:16px;accent-color:var(--g700);flex-shrink:0" onchange="taskAutoSave()">
-            <span style="font-size:13px;color:var(--text2);font-weight:600">🏁 Marco (Milestone)</span>
-          </label>
-        </div>
+        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:12px 16px;background:var(--g50);border:1.5px solid rgba(46,125,50,.2);border-radius:10px;margin-bottom:4px">
+          <input id="task-milestone" type="checkbox" style="width:16px;height:16px;accent-color:var(--g700);flex-shrink:0" onchange="taskAutoSave()">
+          <span style="font-size:13px;color:var(--text2);font-weight:600">🏁 Marco (Milestone)</span>
+        </label>
       </div>
 
-      <div style="height:1px;background:var(--border);margin:20px 28px"></div>
-
       <!-- ── Progresso ── -->
-      <div style="padding:0 28px">
-        <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#E65100;margin-bottom:16px;display:flex;align-items:center;gap:8px">
-          <div style="width:3px;height:14px;background:#E65100;border-radius:2px"></div>Progresso
+      <div style="padding:20px 28px 0">
+        <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#E65100;margin-bottom:16px;padding-bottom:8px;border-bottom:2px solid #FBE9E7">
+          📊 Progresso Atual
         </div>
-        <div style="background:var(--card);border:1.5px solid var(--border);border-radius:10px;padding:16px 20px">
+        <div style="background:var(--subtle);border:1.5px solid var(--border);border-radius:10px;padding:14px 16px">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
             <span style="font-size:12px;color:var(--text2)">0%</span>
-            <span id="task-progress-display" style="font-size:22px;font-weight:800;color:var(--g700)">0%</span>
+            <span id="task-progress-display" style="font-size:20px;font-weight:800;color:var(--g700)">0%</span>
             <span style="font-size:12px;color:var(--text2)">100%</span>
           </div>
           <input type="range" id="task-progress" min="0" max="100" step="5" value="0"
             oninput="onTaskProgressChange(this.value)"
             onmouseup="event.stopPropagation()" onmousedown="event.stopPropagation()"
             style="width:100%;height:6px;border-radius:3px;accent-color:var(--g600);cursor:pointer;display:block">
-          <div style="display:flex;justify-content:space-between;margin-top:8px">
+          <div style="display:flex;justify-content:space-between;margin-top:6px">
             <span style="font-size:10px;color:var(--text3)">Arraste para ajustar</span>
             <span style="font-size:10px;color:var(--text3)">Passo: 5%</span>
           </div>
         </div>
       </div>
 
-      <div style="height:1px;background:var(--border);margin:20px 28px"></div>
-
-      <!-- ── Financeiro ── -->
-      <div style="padding:0 28px 24px">
-        <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#4A148C;margin-bottom:16px;display:flex;align-items:center;gap:8px">
-          <div style="width:3px;height:14px;background:#4A148C;border-radius:2px"></div>Financeiro
+      <!-- ── ROI / Financeiro ── -->
+      <div style="padding:20px 28px 24px">
+        <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#4A148C;margin-bottom:16px;padding-bottom:8px;border-bottom:2px solid #F3E5F5">
+          💰 ROI — Retorno sobre o Investimento
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
           <div>
-            <label style="display:block;font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text2);margin-bottom:4px">💰 ROI (Retorno sobre o Investimento) Estimado (R$)</label>
-            <input id="task-budget" class="input" type="number" min="0" step="100" placeholder="0,00" oninput="taskAutoSave()" style="width:100%">
+            <label style="display:block;font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text2);margin-bottom:8px">ROI Estimado (R$) <span style="color:var(--danger)">*</span></label>
+            <input id="task-budget" type="number" min="0" step="100" placeholder="0,00" required oninput="taskAutoSave()"
+              style="width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:10px;font-size:14px;background:var(--card);color:var(--text);outline:none;transition:border .15s"
+              onfocus="this.style.borderColor='#4A148C'" onblur="this.style.borderColor='var(--border)'">
           </div>
           <div>
-            <label style="display:block;font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text2);margin-bottom:4px">📊 ROI (Retorno sobre o Investimento) Realizado (R$)</label>
-            <input id="task-actual-cost" class="input" type="number" min="0" step="100" placeholder="0,00" oninput="taskAutoSave()" style="width:100%">
+            <label style="display:block;font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text2);margin-bottom:8px">ROI Realizado (R$) <span style="color:var(--danger)">*</span></label>
+            <input id="task-actual-cost" type="number" min="0" step="100" placeholder="0,00" required oninput="taskAutoSave()"
+              style="width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:10px;font-size:14px;background:var(--card);color:var(--text);outline:none;transition:border .15s"
+              onfocus="this.style.borderColor='#4A148C'" onblur="this.style.borderColor='var(--border)'">
           </div>
         </div>
       </div>
@@ -816,7 +854,7 @@
       <div style="display:flex;justify-content:flex-end;gap:10px;padding:16px 28px;border-top:1px solid var(--border);background:var(--card);position:sticky;bottom:0">
         <button type="button" class="btn btn-secondary" onclick="closeModal('modal-task')">Cancelar</button>
         <button type="submit"
-          style="padding:10px 24px;background:linear-gradient(135deg,#1B5E20,#2E7D32);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;transition:opacity .15s;display:flex;align-items:center;gap:8px"
+          style="width:100%;max-width:200px;padding:14px;background:linear-gradient(135deg,#1B5E20,#2E7D32);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;transition:opacity .15s"
           onmouseover="this.style.opacity='.9'" onmouseout="this.style.opacity='1'">
           💾 Salvar Tarefa
         </button>
